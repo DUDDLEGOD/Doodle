@@ -661,7 +661,7 @@ void DrawUINode(UINode* node) {
             }
         }
 
-        Rectangle src = { 0.0f, node->layout.y, node->layout.width, -node->layout.height };
+        Rectangle src = { node->layout.x, arena_target.texture.height - node->layout.y - node->layout.height, node->layout.width, -node->layout.height };
         Rectangle dest = { node->layout.x, node->layout.y, node->layout.width, node->layout.height };
         DrawTexturePro(arena_target.texture, src, dest, (Vector2){0,0}, 0.0f, WHITE);
 

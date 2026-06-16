@@ -166,6 +166,12 @@ def _parse_layout_templates(layout_path):
     except Exception as e:
         print(f"Template parsing warning: {e}")
 
+_tick_callback = None
+
+def register_tick_callback(callback):
+    global _tick_callback
+    _tick_callback = callback
+
 def _update_templates(state):
     for node_id, (template_str, vars_found) in _templates.items():
         rendered = template_str
@@ -198,7 +204,6 @@ def run(layout="layout.html", style="styles.css", width=800, height=600, title="
         print(f"Event parsing warning: {e}")
 
     last_time = time.perf_counter()
-    original_callback = None
     
     def wrapper_tick():
         nonlocal last_time
@@ -233,15 +238,10 @@ def run(layout="layout.html", style="styles.css", width=800, height=600, title="
                     if cb:
                         cb()
                         
-        if original_callback:
-            original_callback()
-
-    def register_tick_callback(callback):
-        nonlocal original_callback
-        original_callback = callback
+        if _tick_callback:
+            _tick_callback()
 
     # Setup Python wrapper's registration hook
     _doodle.register_tick_callback(wrapper_tick)
-    globals()["register_tick_callback"] = register_tick_callback
     
     return _doodle.run(layout=layout, style=style, width=width, height=height, title=title)

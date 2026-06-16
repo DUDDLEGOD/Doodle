@@ -830,8 +830,9 @@ static PyObject* doodle_run(PyObject* self, PyObject* args, PyObject* kwargs) {
     if (root) {
         LoadAndApplyCSS(root, style);
         SetupAudioNodes(root);
+        ComputeLayout(root, 0, 0, (float)width, (float)height);
     }
-    layout_dirty = 1;
+    layout_dirty = 0;
 
     time_t layout_mtime = 0;
     time_t style_mtime = 0;
@@ -894,8 +895,9 @@ static PyObject* doodle_run(PyObject* self, PyObject* args, PyObject* kwargs) {
                 RestorePositions(root);
 
                 SetupAudioNodes(root);
+                ComputeLayout(root, 0, 0, (float)width, (float)height);
             }
-            layout_dirty = 1;
+            layout_dirty = 0;
         }
 
         if (root && UpdateHoverStates(root)) {

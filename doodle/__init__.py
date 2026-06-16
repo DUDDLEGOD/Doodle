@@ -3,6 +3,7 @@ try:
 except ImportError:
     import _doodle
 import sys
+import os
 import re
 import time
 import math
@@ -185,6 +186,11 @@ def _update_templates(state):
 
 # Extended main run loop
 def run(layout="layout.html", style="styles.css", width=800, height=600, title="Doodle Engine", state=None):
+    if hasattr(sys, "_MEIPASS"):
+        try:
+            os.chdir(sys._MEIPASS)
+        except Exception:
+            pass
     _parse_layout_templates(layout)
     
     # Extract inline event callbacks from layout.html

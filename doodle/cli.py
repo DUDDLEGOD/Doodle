@@ -40,6 +40,7 @@ def main():
         "-m",
         "PyInstaller",
         "--onefile",
+        "--noconsole",
         f"--add-binary=doodle/_doodle.pyd{sep}doodle",
         f"--add-data=layout.html{sep}.",
         f"--add-data=styles.css{sep}.",

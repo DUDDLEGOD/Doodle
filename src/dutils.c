@@ -39,3 +39,48 @@ float ParseUnit(const char* unitStr) {
     if (!unitStr) return 0.0f;
     return (float)atof(unitStr);
 }
+
+char* TrimWhitespace(char* str) {
+    if (!str) return NULL;
+    while (*str && (*str == ' ' || *str == '\t' || *str == '\r' || *str == '\n')) str++;
+    if (*str == 0) return str;
+    char* end = str + strlen(str) - 1;
+    while (end > str && (*end == ' ' || *end == '\t' || *end == '\r' || *end == '\n')) end--;
+    end[1] = '\0';
+    return str;
+}
+
+float ParseUnitExt(const char* unitStr, int* isPercent) {
+    if (!unitStr) {
+        if (isPercent) *isPercent = 0;
+        return 0.0f;
+    }
+    char temp[128];
+    strncpy(temp, unitStr, sizeof(temp));
+    temp[sizeof(temp)-1] = '\0';
+    char* trimmed = TrimWhitespace(temp);
+    int len = strlen(trimmed);
+    if (len > 0 && trimmed[len - 1] == '%') {
+        if (isPercent) *isPercent = 1;
+        trimmed[len - 1] = '\0';
+        return (float)atof(trimmed);
+    }
+    if (isPercent) *isPercent = 0;
+    return (float)atof(trimmed);
+}
+
+int HasClass(const char* class_list, const char* cls) {
+    if (!class_list || !cls) return 0;
+    const char* p = class_list;
+    int len = strlen(cls);
+    while ((p = strstr(p, cls))) {
+        if (p == class_list || *(p - 1) == ' ') {
+            char next = *(p + len);
+            if (next == '\0' || next == ' ') {
+                return 1;
+            }
+        }
+        p += len;
+    }
+    return 0;
+}

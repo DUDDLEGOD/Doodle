@@ -1,10 +1,11 @@
 from setuptools import setup, Extension
 
 doodle_module = Extension(
-    'doodle',
-    sources=['expose_raylib.c', 'mparser.c', 'dutils.c'],
+    '_doodle',
+    sources=['expose_raylib.c', 'mparser.c', 'dutils.c', 'daudio.c'],
     include_dirs=['.'],          # Local header search path
-    libraries=['raylib'],        # Links against native raylib binary
+    library_dirs=['.'],          # Local library search path
+    libraries=['raylib', 'gdi32', 'winmm'],        # Links against native raylib binary and windows libs
     extra_compile_args=['-std=c99']
 )
 

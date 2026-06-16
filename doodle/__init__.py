@@ -1,4 +1,7 @@
-import _doodle
+try:
+    from . import _doodle
+except ImportError:
+    import _doodle
 import sys
 import re
 import time

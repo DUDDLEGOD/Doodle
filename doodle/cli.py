@@ -36,9 +36,11 @@ def main():
     sep = ";" if os.name == "nt" else ":"
     
     pyinstaller_args = [
-        "pyinstaller",
+        sys.executable,
+        "-m",
+        "PyInstaller",
         "--onefile",
-        f"--add-binary=_doodle.pyd{sep}.",
+        f"--add-binary=doodle/_doodle.pyd{sep}doodle",
         f"--add-data=layout.html{sep}.",
         f"--add-data=styles.css{sep}.",
     ]

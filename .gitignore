@@ -8,3 +8,11 @@ wheels/
 
 # Virtual environments
 .venv
+
+# Compiled binaries and build specs
+*.pyd
+*.spec
+raylib.zip
+raylib_dist/
+*.a
+*.cfg

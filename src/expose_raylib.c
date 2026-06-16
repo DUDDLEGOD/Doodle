@@ -33,7 +33,7 @@ typedef struct {
     Color color;
     float size;
     float lifetime;
-    float max_lifetime;
+    float inv_max_lifetime;
 } Particle;
 
 #define MAX_PARTICLES 2048
@@ -50,6 +50,7 @@ static PyObject* doodle_spawn_particles(PyObject* self, PyObject* args) {
     if (!PyArg_ParseTuple(args, "ffisff", &x, &y, &count, &color_hex, &speed, &lifetime)) return NULL;
     
     Color col = ParseColor(color_hex);
+    float inv_life = (lifetime > 0.0f) ? (1.0f / lifetime) : 0.0f;
     
     for (int i = 0; i < count; i++) {
         int idx = -1;
@@ -67,7 +68,7 @@ static PyObject* doodle_spawn_particles(PyObject* self, PyObject* args) {
             particle_pool[idx].color = col;
             particle_pool[idx].size = (float)GetRandomValue(2, 6);
             particle_pool[idx].lifetime = lifetime;
-            particle_pool[idx].max_lifetime = lifetime;
+            particle_pool[idx].inv_max_lifetime = inv_life;
         }
     }
     Py_RETURN_NONE;
@@ -85,7 +86,7 @@ static void UpdateAndDrawParticles(void) {
             particle_pool[i].position.y += particle_pool[i].velocity.y * dt * 60.0f;
             
             Color c = particle_pool[i].color;
-            c.a = (unsigned char)(255.0f * (particle_pool[i].lifetime / particle_pool[i].max_lifetime));
+            c.a = (unsigned char)(255.0f * particle_pool[i].lifetime * particle_pool[i].inv_max_lifetime);
             DrawRectangleV(particle_pool[i].position, (Vector2){particle_pool[i].size, particle_pool[i].size}, c);
             
             if (active_idx != i) {

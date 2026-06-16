@@ -16,9 +16,13 @@ for name in dir(_doodle):
 # Event listener registry
 # node_id -> event_type -> list of callables
 _event_listeners = {}
-
-# Attribute listeners context
 _event_context = {}
+_inline_listeners = {}
+_all_event_nodes = []
+
+def _rebuild_event_nodes():
+    global _all_event_nodes
+    _all_event_nodes = list(set(list(_event_listeners.keys()) + [k[0] for k in _inline_listeners.keys()]))
 
 def add_event_listener(node_id, event_type, callback):
     if node_id not in _event_listeners:
@@ -26,6 +30,7 @@ def add_event_listener(node_id, event_type, callback):
     if event_type not in _event_listeners[node_id]:
         _event_listeners[node_id][event_type] = []
     _event_listeners[node_id][event_type].append(callback)
+    _rebuild_event_nodes()
 
 def set_event_context(context_dict):
     global _event_context
@@ -165,8 +170,8 @@ def _parse_layout_templates(layout_path):
         pattern = r'<([a-zA-Z0-9]+)\s+[^>]*id="([^"]+)"[^>]*>([^<]*\{\{.*?\}\}[^<]*)<\/\1>'
         matches = re.findall(pattern, content, re.DOTALL)
         for tag, node_id, template_str in matches:
-            vars_found = re.findall(r'\{\{\s*([a-zA-Z0-9_]+)\s*\}\}', template_str)
-            _templates[node_id] = (template_str, vars_found)
+            # Convert '{{ var }}' to '{var}' for built-in fast formatting
+            _templates[node_id] = re.sub(r'\{\{\s*([a-zA-Z0-9_]+)\s*\}\}', r'{\1}', template_str)
     except Exception as e:
         print(f"Template parsing warning: {e}")
 
@@ -177,12 +182,11 @@ def register_tick_callback(callback):
     _tick_callback = callback
 
 def _update_templates(state):
-    for node_id, (template_str, vars_found) in _templates.items():
-        rendered = template_str
-        for var in vars_found:
-            val = state.get(var, "")
-            rendered = re.sub(r'\{\{\s*' + var + r'\s*\}\}', str(val), rendered)
-        _doodle.update_text(node_id, rendered)
+    for node_id, format_str in _templates.items():
+        try:
+            _doodle.update_text(node_id, format_str.format(**state))
+        except Exception:
+            pass
 
 # Extended main run loop
 def run(layout="layout.html", style="styles.css", width=800, height=600, title="Doodle Engine", state=None):
@@ -194,6 +198,7 @@ def run(layout="layout.html", style="styles.css", width=800, height=600, title="
     _parse_layout_templates(layout)
     
     # Extract inline event callbacks from layout.html
+    global _inline_listeners
     _inline_listeners = {}
     try:
         with open(layout, "r", encoding="utf-8") as f:
@@ -203,14 +208,14 @@ def run(layout="layout.html", style="styles.css", width=800, height=600, title="
         for attr_str, node_id in tags:
             click_match = re.search(r'onclick="([^"]+)"', attr_str)
             if click_match:
-                cb_name = click_match.group(1)
-                _inline_listeners[(node_id, "click")] = cb_name
+                _inline_listeners[(node_id, "click")] = click_match.group(1)
             hover_match = re.search(r'onhover="([^"]+)"', attr_str)
             if hover_match:
-                cb_name = hover_match.group(1)
-                _inline_listeners[(node_id, "hover")] = cb_name
+                _inline_listeners[(node_id, "hover")] = hover_match.group(1)
     except Exception as e:
         print(f"Event parsing warning: {e}")
+        
+    _rebuild_event_nodes()
 
     last_time = time.perf_counter()
     
@@ -225,8 +230,7 @@ def run(layout="layout.html", style="styles.css", width=800, height=600, title="
         if state is not None:
             _update_templates(state)
             
-        all_ids = set(list(_event_listeners.keys()) + [k[0] for k in _inline_listeners.keys()])
-        for node_id in all_ids:
+        for node_id in _all_event_nodes:
             if _doodle.is_node_clicked(node_id):
                 if node_id in _event_listeners and "click" in _event_listeners[node_id]:
                     for cb in _event_listeners[node_id]["click"]:

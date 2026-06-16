@@ -35,22 +35,32 @@ def main():
     # On Windows, path separator is ;. On Unix it is :.
     sep = ";" if os.name == "nt" else ":"
     
+    import doodle
+    doodle_dir = os.path.dirname(os.path.abspath(doodle.__file__))
+    doodle_pyd = os.path.join(doodle_dir, "_doodle.pyd")
+    entrypoint_dir = os.path.dirname(os.path.abspath(entrypoint))
+    
+    layout_path = os.path.join(entrypoint_dir, "layout.html")
+    styles_path = os.path.join(entrypoint_dir, "styles.css")
+    shaders_path = os.path.join(entrypoint_dir, "shaders")
+    assets_path = os.path.join(entrypoint_dir, "assets")
+    
     pyinstaller_args = [
         sys.executable,
         "-m",
         "PyInstaller",
         "--onefile",
         "--noconsole",
-        f"--add-binary=doodle/_doodle.pyd{sep}doodle",
-        f"--add-data=layout.html{sep}.",
-        f"--add-data=styles.css{sep}.",
+        f"--add-binary={doodle_pyd}{sep}doodle",
+        f"--add-data={layout_path}{sep}.",
+        f"--add-data={styles_path}{sep}.",
     ]
     
     # Add folders if they exist
-    if os.path.exists("shaders"):
-        pyinstaller_args.append(f"--add-data=shaders{sep}shaders")
-    if os.path.exists("assets"):
-        pyinstaller_args.append(f"--add-data=assets{sep}assets")
+    if os.path.exists(shaders_path):
+        pyinstaller_args.append(f"--add-data={shaders_path}{sep}shaders")
+    if os.path.exists(assets_path):
+        pyinstaller_args.append(f"--add-data={assets_path}{sep}assets")
         
     # Link against raylib dll if found locally
     if os.path.exists("raylib.dll"):

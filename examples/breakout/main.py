@@ -1,8 +1,17 @@
 import os
 import sys
 
-# Add python dlls directory
-os.add_dll_directory(r"C:\msys64\ucrt64\bin")
+# Ensure current working directory is the script's directory for loading HTML/CSS/shaders
+os.chdir(os.path.dirname(os.path.abspath(__file__)))
+
+# Safely add DLL directory on Windows if MSYS2/MinGW exists
+try:
+    os.add_dll_directory(r"C:\msys64\ucrt64\bin")
+except Exception:
+    pass
+
+# Add root folder to python module search path
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..")))
 
 import doodle
 
@@ -20,6 +29,10 @@ game_over = False
 ball = doodle.get_node("ball")
 paddle = doodle.get_node("paddle")
 game_over_screen = doodle.get_node("game-over-screen")
+
+# Fast static lookups for brick configuration
+_PITCH_MAP = {"b1": 783.99, "b2": 659.25, "b3": 587.33, "b4": 523.25}
+_COLOR_MAP = {"b1": "#f43f5e", "b2": "#fb923c", "b3": "#facc15", "b4": "#4ade80"}
 
 def restart_game():
     global ball_dx, ball_dy, game_over
@@ -57,10 +70,7 @@ def game_loop_tick():
         doodle.shake_camera(10.0, 0.4)
 
     if game_over:
-        if doodle.is_node_hovered("restart-btn"):
-            doodle.set_mouse_cursor(4) # Pointer cursor
-        else:
-            doodle.set_mouse_cursor(0) # Default cursor
+        doodle.set_mouse_cursor(4 if doodle.is_node_hovered("restart-btn") else 0)
         return
 
     # 1. Update Paddle Positioning
@@ -80,9 +90,9 @@ def game_loop_tick():
     # Paddle boundary checks
     if px < 0:
         px = 0.0
-    if px > 800 - 100:
-        px = 800 - 100.0
-    paddle.x = px
+    elif px > 700.0:  # 800 - 100
+        px = 700.0
+    paddle.position = (px, py)
 
     # 2. Update Ball Position
     bx, by = ball.position
@@ -95,8 +105,7 @@ def game_loop_tick():
 
     # 3. Collision with Paddle
     if doodle.check_collision("ball", "paddle"):
-        hit_pos = (new_bx + 8) - (px + 50)
-        ball_dx = hit_pos * 0.16
+        ball_dx = ((new_bx + 8) - (px + 50)) * 0.16
         ball_dy = -abs(ball_dy)
         
         # Procedural Sound Synth (Paddle Hit)
@@ -107,36 +116,26 @@ def game_loop_tick():
     # 4. Collision with Bricks
     hit_brick = doodle.get_first_collision("ball", group="bricks")
     if hit_brick:
-        ball_dy *= -1.0
+        ball_dy = -ball_dy
         doodle.remove_node(hit_brick)
         state["score"] += 100
         
-        # Procedural Sound Synth (Brick Hit - pitch maps to hit layer)
-        pitch = 523.25 if hit_brick.startswith("b4") else (587.33 if hit_brick.startswith("b3") else (659.25 if hit_brick.startswith("b2") else 783.99))
+        prefix = hit_brick[:2]
+        pitch = _PITCH_MAP.get(prefix, 783.99)
         doodle.play_synth(pitch, 0.06, doodle.WAVE_TRIANGLE, 0.002, 0.01, 0.2, 0.01)
         doodle.shake_camera(6.0, 0.2)
         
-        # Color matching particles
-        p_color = "#ffffff"
-        if hit_brick.startswith("b1"):
-            p_color = "#f43f5e"
-        elif hit_brick.startswith("b2"):
-            p_color = "#fb923c"
-        elif hit_brick.startswith("b3"):
-            p_color = "#facc15"
-        elif hit_brick.startswith("b4"):
-            p_color = "#4ade80"
-            
+        p_color = _COLOR_MAP.get(prefix, "#ffffff")
         doodle.spawn_particles(new_bx + 8, new_by + 8, 30, p_color, 4.5, 0.6)
 
     # 5. Wall bounce checks
-    if new_bx <= 0 or new_bx >= 800 - 16:
-        ball_dx *= -1.0
+    if new_bx <= 0 or new_bx >= 784:  # 800 - 16
+        ball_dx = -ball_dx
         doodle.play_synth(196.0, 0.05, doodle.WAVE_SINE, 0.005, 0.02, 0.5, 0.02)
         doodle.shake_camera(2.0, 0.1)
 
     if new_by <= 0:
-        ball_dy *= -1.0
+        ball_dy = -ball_dy
         doodle.play_synth(196.0, 0.05, doodle.WAVE_SINE, 0.005, 0.02, 0.5, 0.02)
         doodle.shake_camera(2.0, 0.1)
 

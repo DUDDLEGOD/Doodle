@@ -6,6 +6,8 @@
 #ifndef PI
 #define PI 3.14159265358979323846f
 #endif
+#define TWO_PI 6.283185307179586f
+#define INV_TWO_PI 0.159154943091895f
 
 #define MAX_VOICES 16
 #define SAMPLE_RATE 44100
@@ -14,6 +16,7 @@ typedef struct {
     int active;
     float frequency;
     float phase;
+    float phase_increment;
     float duration;
     float time_elapsed;
     int wave_type;
@@ -28,14 +31,15 @@ void AudioSynthCallback(void *buffer, unsigned int frames) {
     float *out = (float *)buffer;
     memset(out, 0, frames * sizeof(float));
 
+    const float inv_sample_rate = 1.0f / (float)SAMPLE_RATE;
+
     for (unsigned int f = 0; f < frames; f++) {
         float sample = 0.0f;
-        int active_count = 0;
 
         for (int i = 0; i < MAX_VOICES; i++) {
             if (!voices[i].active) continue;
 
-            voices[i].time_elapsed += 1.0f / SAMPLE_RATE;
+            voices[i].time_elapsed += inv_sample_rate;
             float t = voices[i].time_elapsed;
 
             // Calculate ADSR envelope multiplier
@@ -61,34 +65,33 @@ void AudioSynthCallback(void *buffer, unsigned int frames) {
             // Generate raw wave sample
             float val = 0.0f;
             float p = voices[i].phase;
-            voices[i].phase += (2.0f * PI * voices[i].frequency) / SAMPLE_RATE;
-            if (voices[i].phase > 2.0f * PI) voices[i].phase -= 2.0f * PI;
+            voices[i].phase += voices[i].phase_increment;
+            if (voices[i].phase > TWO_PI) voices[i].phase -= TWO_PI;
 
             switch (voices[i].wave_type) {
                 case WAVE_SINE:
                     val = sinf(p);
                     break;
                 case WAVE_SQUARE:
-                    val = (sinf(p) >= 0.0f) ? 1.0f : -1.0f;
+                    val = (p < PI) ? 1.0f : -1.0f;
                     break;
                 case WAVE_TRIANGLE:
-                    val = 2.0f * fabsf(2.0f * (p / (2.0f * PI)) - 1.0f) - 1.0f;
+                    val = 2.0f * fabsf(2.0f * p * INV_TWO_PI - 1.0f) - 1.0f;
                     break;
                 case WAVE_SAWTOOTH:
-                    val = 2.0f * (p / (2.0f * PI)) - 1.0f;
+                    val = 2.0f * p * INV_TWO_PI - 1.0f;
                     break;
                 case WAVE_NOISE:
-                    val = ((float)rand() / RAND_MAX) * 2.0f - 1.0f;
+                    val = ((float)rand() / (float)RAND_MAX) * 2.0f - 1.0f;
                     break;
             }
 
             sample += val * amplitude * 0.15f; // Scale down to prevent clipping
-            active_count++;
         }
 
         // Clip / Normalize output mix
         if (sample > 1.0f) sample = 1.0f;
-        if (sample < -1.0f) sample = -1.0f;
+        else if (sample < -1.0f) sample = -1.0f;
         out[f] = sample;
     }
 }
@@ -130,6 +133,7 @@ void PlaySynthTone(float frequency, float duration, int wave_type, ADSREnvelope 
     voices[idx].active = 1;
     voices[idx].frequency = frequency;
     voices[idx].phase = 0.0f;
+    voices[idx].phase_increment = (TWO_PI * frequency) / (float)SAMPLE_RATE;
     voices[idx].duration = duration;
     voices[idx].time_elapsed = 0.0f;
     voices[idx].wave_type = wave_type;

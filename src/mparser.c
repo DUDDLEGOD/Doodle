@@ -32,8 +32,15 @@ UINode* CreateNode(NodeType type) {
     return node;
 }
 
+static char last_found_id[64] = "";
+static UINode* last_found_node = NULL;
+
 void FreeNode(UINode* node) {
     if (!node) return;
+    if (node == last_found_node) {
+        last_found_node = NULL;
+        last_found_id[0] = '\0';
+    }
     for (int i = 0; i < node->child_count; i++) {
         FreeNode(node->children[i]);
         node->children[i] = NULL;
@@ -51,10 +58,21 @@ void AddChild(UINode* parent, UINode* child) {
 
 UINode* FindNodeById(UINode* root, const char* id) {
     if (!root || !id) return NULL;
-    if (strcmp(root->id, id) == 0) return root;
+    if (last_found_node && strcmp(last_found_id, id) == 0) {
+        return last_found_node;
+    }
+    if (strcmp(root->id, id) == 0) {
+        strncpy(last_found_id, id, sizeof(last_found_id) - 1);
+        last_found_node = root;
+        return root;
+    }
     for (int i = 0; i < root->child_count; i++) {
         UINode* found = FindNodeById(root->children[i], id);
-        if (found) return found;
+        if (found) {
+            strncpy(last_found_id, id, sizeof(last_found_id) - 1);
+            last_found_node = found;
+            return found;
+        }
     }
     return NULL;
 }

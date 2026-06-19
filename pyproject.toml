@@ -33,10 +33,13 @@ sudo cmake --build build --target install --config Release
 """
 
 [tool.cibuildwheel.windows]
+environment = { PATH = "C:\\msys64\\ucrt64\\bin;$PATH", CC = "gcc", CXX = "g++" }
 before-all = '''
 powershell -Command "Invoke-WebRequest -Uri https://github.com/raysan5/raylib/archive/refs/tags/6.0.zip -OutFile raylib-6.0.zip"
 powershell -Command "Expand-Archive -Path raylib-6.0.zip -DestinationPath ."
 cd raylib-6.0
-cmake -B build -DBUILD_SHARED_LIBS=OFF -DCMAKE_BUILD_TYPE=Release -DCMAKE_INSTALL_PREFIX=C:\\raylib
+cmake -G Ninja -B build -DBUILD_SHARED_LIBS=OFF -DCMAKE_BUILD_TYPE=Release -DCMAKE_INSTALL_PREFIX=C:\raylib
 cmake --build build --target install --config Release
 '''
+before-build = "echo [build_ext]>setup.cfg && echo compiler=mingw32>>setup.cfg"
+

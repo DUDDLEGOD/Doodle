@@ -37,6 +37,6 @@ before-all = '''
 powershell -Command "Invoke-WebRequest -Uri https://github.com/raysan5/raylib/archive/refs/tags/6.0.zip -OutFile raylib-6.0.zip"
 powershell -Command "Expand-Archive -Path raylib-6.0.zip -DestinationPath ."
 cd raylib-6.0
-cmake -B build -DBUILD_SHARED_LIBS=OFF -DCMAKE_BUILD_TYPE=Release -DCMAKE_INSTALL_PREFIX=C:\raylib
+cmake -B build -DBUILD_SHARED_LIBS=OFF -DCMAKE_BUILD_TYPE=Release -DCMAKE_INSTALL_PREFIX=C:\\raylib
 cmake --build build --target install --config Release
 '''

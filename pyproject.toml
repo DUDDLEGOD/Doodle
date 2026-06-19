@@ -14,23 +14,23 @@ build-backend = "setuptools.build_meta"
 skip = ["pp*", "*-win32", "*-manylinux_i686"]
 
 [tool.cibuildwheel.linux]
-before-all = '''
-yum install -y libX11-devel libXcursor-devel libXrandr-devel libXinerama-devel libXi-devel mesa-libGL-devel alsa-lib-devel cmake
-curl -L -o raylib-6.0.tar.gz https://github.com/raysan5/raylib/archive/refs/tags/6.0.tar.gz
-tar -xzf raylib-6.0.tar.gz
-cd raylib-6.0
-cmake -B build -DBUILD_SHARED_LIBS=OFF -DCMAKE_BUILD_TYPE=Release -DCMAKE_POSITION_INDEPENDENT_CODE=ON
+before-all = """
+yum install -y libX11-devel libXcursor-devel libXrandr-devel libXinerama-devel libXi-devel mesa-libGL-devel alsa-lib-devel cmake && \
+curl -L -o raylib-6.0.tar.gz https://github.com/raysan5/raylib/archive/refs/tags/6.0.tar.gz && \
+tar -xzf raylib-6.0.tar.gz && \
+cd raylib-6.0 && \
+cmake -B build -DBUILD_SHARED_LIBS=OFF -DCMAKE_BUILD_TYPE=Release -DCMAKE_POSITION_INDEPENDENT_CODE=ON && \
 cmake --build build --target install --config Release
-'''
+"""
 
 [tool.cibuildwheel.macos]
-before-all = '''
-curl -L -o raylib-6.0.tar.gz https://github.com/raysan5/raylib/archive/refs/tags/6.0.tar.gz
-tar -xzf raylib-6.0.tar.gz
-cd raylib-6.0
-cmake -B build -DBUILD_SHARED_LIBS=OFF -DCMAKE_BUILD_TYPE=Release -DCMAKE_POSITION_INDEPENDENT_CODE=ON
+before-all = """
+curl -L -o raylib-6.0.tar.gz https://github.com/raysan5/raylib/archive/refs/tags/6.0.tar.gz && \
+tar -xzf raylib-6.0.tar.gz && \
+cd raylib-6.0 && \
+cmake -B build -DBUILD_SHARED_LIBS=OFF -DCMAKE_BUILD_TYPE=Release -DCMAKE_POSITION_INDEPENDENT_CODE=ON && \
 sudo cmake --build build --target install --config Release
-'''
+"""
 
 [tool.cibuildwheel.windows]
 before-all = '''

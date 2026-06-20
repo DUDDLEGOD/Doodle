@@ -15,7 +15,15 @@ skip = ["pp*", "*-win32", "*-manylinux_i686"]
 
 [tool.cibuildwheel.linux]
 before-all = """
-yum install -y libX11-devel libXcursor-devel libXrandr-devel libXinerama-devel libXi-devel mesa-libGL-devel alsa-lib-devel cmake && \
+if command -v yum >/dev/null 2>&1; then
+    yum install -y libX11-devel libXcursor-devel libXrandr-devel libXinerama-devel libXi-devel mesa-libGL-devel alsa-lib-devel cmake
+elif command -v apt-get >/dev/null 2>&1; then
+    apt-get update && apt-get install -y libx11-dev libxcursor-dev libxrandr-dev libxinerama-dev libxi-dev libgl1-mesa-dev libasound2-dev cmake
+elif command -v apk >/dev/null 2>&1; then
+    apk add libx11-dev libxcursor-dev libxrandr-dev libxinerama-dev libxi-dev mesa-dev alsa-lib-dev cmake
+else
+    echo "No supported package manager found" && exit 1
+fi && \
 curl -L -o raylib-6.0.tar.gz https://github.com/raysan5/raylib/archive/refs/tags/6.0.tar.gz && \
 tar -xzf raylib-6.0.tar.gz && \
 cd raylib-6.0 && \

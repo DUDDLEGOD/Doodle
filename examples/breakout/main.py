@@ -1,18 +1,6 @@
 import os
 import sys
 
-# Ensure current working directory is the script's directory for loading HTML/CSS/shaders
-os.chdir(os.path.dirname(os.path.abspath(__file__)))
-
-# Safely add DLL directory on Windows if MSYS2/MinGW exists
-try:
-    os.add_dll_directory(r"C:\msys64\ucrt64\bin")
-except Exception:
-    pass
-
-# Add root folder to python module search path
-sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..")))
-
 import doodle
 
 # Game state dictionary (Passed to doodle.run for reactive templating!)
@@ -40,30 +28,30 @@ def restart_game():
         os.utime("layout.html", None) # Trigger hot reload reset
     except Exception:
         pass
-        
+
     state["score"] = 0
     state["lives"] = 3
     game_over = False
-    
+
     game_over_screen.hide()
-    
+
     # Place entities
     ball.position = (390, 350)
     paddle.position = (350, 500)
-    
+
     ball_dx = 5.0
     ball_dy = -5.0
-    
+
     # Play procedural restart sound tone
     doodle.play_synth(440.0, 0.15, doodle.WAVE_TRIANGLE, 0.01, 0.05, 0.3, 0.05)
-    
+
     # Trigger a smooth entrance animation for the paddle
     paddle.y = 580
     doodle.animate("paddle", target_y=500, duration=0.4, ease="quad_out")
 
 def game_loop_tick():
     global ball_dx, ball_dy, game_over
-    
+
     # Global Reset Key (R)
     if doodle.is_key_pressed(82): # KEY_R = 82
         restart_game()
@@ -107,7 +95,7 @@ def game_loop_tick():
     if doodle.check_collision("ball", "paddle"):
         ball_dx = ((new_bx + 8) - (px + 50)) * 0.16
         ball_dy = -abs(ball_dy)
-        
+
         # Procedural Sound Synth (Paddle Hit)
         doodle.play_synth(293.66, 0.08, doodle.WAVE_SQUARE, 0.005, 0.02, 0.4, 0.02)
         doodle.shake_camera(4.0, 0.15)
@@ -119,12 +107,12 @@ def game_loop_tick():
         ball_dy = -ball_dy
         doodle.remove_node(hit_brick)
         state["score"] += 100
-        
+
         prefix = hit_brick[:2]
         pitch = _PITCH_MAP.get(prefix, 783.99)
         doodle.play_synth(pitch, 0.06, doodle.WAVE_TRIANGLE, 0.002, 0.01, 0.2, 0.01)
         doodle.shake_camera(6.0, 0.2)
-        
+
         p_color = _COLOR_MAP.get(prefix, "#ffffff")
         doodle.spawn_particles(new_bx + 8, new_by + 8, 30, p_color, 4.5, 0.6)
 
@@ -142,12 +130,12 @@ def game_loop_tick():
     # Ball falls off screen
     if new_by >= 600:
         state["lives"] -= 1
-        
+
         # Procedural synth sound (life lost)
         doodle.play_synth(110.0, 0.35, doodle.WAVE_SAWTOOTH, 0.01, 0.15, 0.1, 0.1)
         doodle.shake_camera(12.0, 0.4)
         doodle.spawn_particles(new_bx, 580, 50, "#f43f5e", 6.0, 0.8)
-        
+
         if state["lives"] <= 0:
             game_over = True
             game_over_screen.show()

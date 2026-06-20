@@ -1,13 +1,24 @@
 import os
 import sys
+import shutil
 from setuptools import setup, Extension, find_packages
 from setuptools.command.build_ext import build_ext
+
+FORCE_MINGW = os.environ.get('DOODLE_FORCE_MINGW') == '1'
+if sys.platform == 'win32' and not FORCE_MINGW:
+    if not shutil.which('cl.exe'):
+        mingw_bin = r'C:\msys64\ucrt64\bin'
+        if os.path.exists(mingw_bin):
+            os.environ['PATH'] = mingw_bin + os.pathsep + os.environ['PATH']
+            FORCE_MINGW = True
+            print("MSVC (cl.exe) not found. Automatically falling back to MSYS2 MinGW compiler.")
 
 class my_build_ext(build_ext):
     def finalize_options(self):
         super().finalize_options()
-        if sys.platform == 'win32' and os.environ.get('DOODLE_FORCE_MINGW') == '1':
+        if sys.platform == 'win32' and FORCE_MINGW:
             self.compiler = 'mingw32'
+
 
 include_dirs = ['src']
 library_dirs = []
@@ -59,8 +70,9 @@ elif sys.platform == 'win32':
     libraries.extend(['raylib', 'gdi32', 'winmm', 'user32', 'shell32'])
     
     # MSVC doesn't support -std=c99 compile flag
-    if os.environ.get('DOODLE_FORCE_MINGW') != '1':
+    if not FORCE_MINGW:
         extra_compile_args = []
+
 
 doodle_module = Extension(
     '_doodle',

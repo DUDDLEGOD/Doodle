@@ -809,6 +809,43 @@ static int UpdateHoverStates(UINode* node) {
     return changed;
 }
 
+typedef struct {
+    char id[64];
+    float x, y;
+} SavedPos;
+
+static SavedPos saved_positions[512];
+static int saved_positions_count = 0;
+
+static void SavePositions(UINode* n) {
+    if (!n) return;
+    if (n->position_set && saved_positions_count < 512) {
+        strncpy(saved_positions[saved_positions_count].id, n->id, 63);
+        saved_positions[saved_positions_count].id[63] = '\0';
+        saved_positions[saved_positions_count].x = n->layout.x;
+        saved_positions[saved_positions_count].y = n->layout.y;
+        saved_positions_count++;
+    }
+    for (int i = 0; i < n->child_count; i++) {
+        SavePositions(n->children[i]);
+    }
+}
+
+static void RestorePositions(UINode* n) {
+    if (!n) return;
+    for (int i = 0; i < saved_positions_count; i++) {
+        if (strcmp(n->id, saved_positions[i].id) == 0) {
+            n->layout.x = saved_positions[i].x;
+            n->layout.y = saved_positions[i].y;
+            n->position_set = 1;
+            break;
+        }
+    }
+    for (int i = 0; i < n->child_count; i++) {
+        RestorePositions(n->children[i]);
+    }
+}
+
 static PyObject* doodle_run(PyObject* self, PyObject* args, PyObject* kwargs) {
     char* layout = "layout.html";
     char* style = "styles.css";
@@ -855,23 +892,7 @@ static PyObject* doodle_run(PyObject* self, PyObject* args, PyObject* kwargs) {
         }
 
         if (reload_needed) {
-            typedef struct {
-                char id[64];
-                float x, y;
-            } SavedPos;
-            static SavedPos saved[512];
-            int saved_count = 0;
-            
-            void SavePositions(UINode* n) {
-                if (!n) return;
-                if (n->position_set && saved_count < 512) {
-                    strncpy(saved[saved_count].id, n->id, 63);
-                    saved[saved_count].x = n->layout.x;
-                    saved[saved_count].y = n->layout.y;
-                    saved_count++;
-                }
-                for (int i = 0; i < n->child_count; i++) SavePositions(n->children[i]);
-            }
+            saved_positions_count = 0;
             SavePositions(root);
 
             FreeNode(root);
@@ -880,21 +901,7 @@ static PyObject* doodle_run(PyObject* self, PyObject* args, PyObject* kwargs) {
             root = ParseHTML(layout);
             if (root) {
                 LoadAndApplyCSS(root, style);
-                
-                void RestorePositions(UINode* n) {
-                    if (!n) return;
-                    for (int i = 0; i < saved_count; i++) {
-                        if (strcmp(n->id, saved[i].id) == 0) {
-                            n->layout.x = saved[i].x;
-                            n->layout.y = saved[i].y;
-                            n->position_set = 1;
-                            break;
-                        }
-                    }
-                    for (int i = 0; i < n->child_count; i++) RestorePositions(n->children[i]);
-                }
                 RestorePositions(root);
-
                 SetupAudioNodes(root);
                 ComputeLayout(root, 0, 0, (float)width, (float)height);
             }

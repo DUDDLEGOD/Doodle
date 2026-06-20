@@ -1,5 +1,13 @@
+import os
 import sys
 from setuptools import setup, Extension, find_packages
+from setuptools.command.build_ext import build_ext
+
+class my_build_ext(build_ext):
+    def finalize_options(self):
+        super().finalize_options()
+        if sys.platform == 'win32' and os.environ.get('DOODLE_FORCE_MINGW') == '1':
+            self.compiler = 'mingw32'
 
 include_dirs = ['src']
 library_dirs = []
@@ -15,21 +23,44 @@ if sys.platform.startswith('linux'):
         '-lGL', '-lm', '-lpthread', '-ldl', '-lrt', '-lX11'
     ])
 elif sys.platform == 'darwin':
-    include_dirs.append('/usr/local/include')
-    library_dirs.append('/usr/local/lib')
-    extra_link_args.extend([
-        '/usr/local/lib/libraylib.a',
-        '-framework', 'OpenGL',
-        '-framework', 'Cocoa',
-        '-framework', 'IOKit',
-        '-framework', 'CoreAudio',
-        '-framework', 'CoreVideo'
-    ])
+    if os.path.exists('raylib'):
+        include_dirs.append('raylib/src')
+        library_dirs.append('raylib/build/raylib')
+        extra_link_args.extend([
+            'raylib/build/raylib/libraylib.a',
+            '-framework', 'OpenGL',
+            '-framework', 'Cocoa',
+            '-framework', 'IOKit',
+            '-framework', 'CoreAudio',
+            '-framework', 'CoreVideo'
+        ])
+    else:
+        include_dirs.append('/usr/local/include')
+        library_dirs.append('/usr/local/lib')
+        extra_link_args.extend([
+            '/usr/local/lib/libraylib.a',
+            '-framework', 'OpenGL',
+            '-framework', 'Cocoa',
+            '-framework', 'IOKit',
+            '-framework', 'CoreAudio',
+            '-framework', 'CoreVideo'
+        ])
 elif sys.platform == 'win32':
-    include_dirs.append(r'C:\raylib\include')
-    library_dirs.append(r'C:\raylib\lib')
+    local_mingw_raylib = r'third_party\raylib_dist\raylib-5.0_win64_mingw-w64'
+    if os.path.exists(local_mingw_raylib):
+        include_dirs.append(os.path.join(local_mingw_raylib, 'include'))
+        library_dirs.append(os.path.join(local_mingw_raylib, 'lib'))
+    elif os.path.exists('raylib'):
+        include_dirs.append('raylib/src')
+        library_dirs.append('raylib/build/raylib/Release')
+    else:
+        include_dirs.append(r'C:\raylib\include')
+        library_dirs.append(r'C:\raylib\lib')
     libraries.extend(['raylib', 'gdi32', 'winmm', 'user32', 'shell32'])
-    extra_compile_args = []  # MSVC does not use -std=c99
+    
+    # MSVC doesn't support -std=c99 compile flag
+    if os.environ.get('DOODLE_FORCE_MINGW') != '1':
+        extra_compile_args = []
 
 doodle_module = Extension(
     '_doodle',
@@ -44,4 +75,7 @@ doodle_module = Extension(
 setup(
     packages=find_packages(),
     ext_modules=[doodle_module],
+    cmdclass={
+        'build_ext': my_build_ext,
+    },
 )

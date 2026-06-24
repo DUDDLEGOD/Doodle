@@ -53,8 +53,18 @@ void RebuildNodeHashTable(UINode* root_node) {
     node_hash_table_dirty = 0;
 }
 
+#define NODE_POOL_MAX 1024
+static UINode* node_pool[NODE_POOL_MAX];
+static int node_pool_count = 0;
+
 UINode* CreateNode(NodeType type) {
-    UINode* node = (UINode*)calloc(1, sizeof(UINode));
+    UINode* node = NULL;
+    if (node_pool_count > 0) {
+        node = node_pool[--node_pool_count];
+        memset(node, 0, sizeof(UINode));
+    } else {
+        node = (UINode*)calloc(1, sizeof(UINode));
+    }
     if (!node) return NULL;
     
     node->type = type;
@@ -92,7 +102,13 @@ void FreeNode(UINode* node) {
     for (int i = 0; i < node->child_count; i++) {
         FreeNode(node->children[i]);
     }
-    free(node);
+    node->child_count = 0;
+    
+    if (node_pool_count < NODE_POOL_MAX) {
+        node_pool[node_pool_count++] = node;
+    } else {
+        free(node);
+    }
 }
 
 void AddChild(UINode* parent, UINode* child) {

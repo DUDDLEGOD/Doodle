@@ -1,6 +1,8 @@
 #include "particles.h"
 #include "color.h"
-#include <math.h>
+#include "fast_math.h"
+
+extern int g_draw_calls;
 
 #ifndef PI
 #define PI 3.14159265358979323846f
@@ -40,7 +42,7 @@ void SpawnParticles(float x, float y, int count, const char* color_hex, float sp
             particle_pool[idx].position = (Vector2){x, y};
             float angle = GetRandomValue(0, 360) * DEG2RAD;
             float current_speed = GetRandomValue(20, 100) * 0.01f * speed;
-            particle_pool[idx].velocity = (Vector2){ cosf(angle) * current_speed, sinf(angle) * current_speed };
+            particle_pool[idx].velocity = (Vector2){ fast_cos(angle) * current_speed, fast_sin(angle) * current_speed };
             particle_pool[idx].color = col;
             particle_pool[idx].size = (float)GetRandomValue(2, 6);
             particle_pool[idx].lifetime = lifetime;
@@ -62,7 +64,7 @@ void UpdateAndDrawParticles(void) {
             
             Color c = particle_pool[i].color;
             c.a = (unsigned char)(255.0f * particle_pool[i].lifetime * particle_pool[i].inv_max_lifetime);
-            DrawRectangleV(particle_pool[i].position, (Vector2){particle_pool[i].size, particle_pool[i].size}, c);
+            DrawRectangleV(particle_pool[i].position, (Vector2){particle_pool[i].size, particle_pool[i].size}, c); g_draw_calls++;
             
             if (active_idx != i) {
                 particle_pool[active_idx] = particle_pool[i];
@@ -71,4 +73,8 @@ void UpdateAndDrawParticles(void) {
         }
     }
     particle_count = active_idx;
+}
+
+int GetActiveParticleCount(void) {
+    return particle_count;
 }

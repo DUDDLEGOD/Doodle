@@ -23,7 +23,7 @@ class my_build_ext(build_ext):
 include_dirs = ['src']
 library_dirs = []
 libraries = []
-extra_compile_args = ['-std=c99']
+extra_compile_args = ['-std=c99', '-O3', '-ffast-math', '-msse3']
 extra_link_args = []
 
 if sys.platform.startswith('linux'):
@@ -67,20 +67,20 @@ elif sys.platform == 'win32':
     else:
         include_dirs.append(r'C:\raylib\include')
         library_dirs.append(r'C:\raylib\lib')
-    libraries.extend(['raylib', 'gdi32', 'winmm', 'user32', 'shell32'])
-    
+    libraries.extend(['raylib', 'gdi32', 'winmm', 'user32', 'shell32', 'psapi'])
+
     # MSVC doesn't support -std=c99 compile flag
     if not FORCE_MINGW:
         extra_compile_args = []
 
 
 doodle_module = Extension(
-    '_doodle',
+    'doodle._doodle',
     sources=[
         'src/expose_raylib.c', 'src/mparser.c', 'src/dutils.c', 'src/daudio.c',
         'src/color.c', 'src/unit.c', 'src/string_utils.c', 'src/dom_utils.c',
         'src/html_parser.c', 'src/css_parser.c', 'src/layout.c', 'src/renderer.c',
-        'src/particles.c', 'src/cache.c'
+        'src/particles.c', 'src/cache.c', 'src/profiler.c'
     ],
     include_dirs=include_dirs,
     library_dirs=library_dirs,

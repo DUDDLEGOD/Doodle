@@ -80,19 +80,28 @@ def game_loop_tick():
         px = 0.0
     elif px > 700.0:  # 800 - 100
         px = 700.0
-    paddle.position = (px, py)
-
-    # 2. Update Ball Position
+    # 2. Calculate Ball Position
     bx, by = ball.position
     new_bx = bx + ball_dx
     new_by = by + ball_dy
-    ball.position = (new_bx, new_by)
+
+    # 3. Batch process positions and collisions!
+    res = doodle.batch_process(
+        positions={
+            "paddle": (px, py),
+            "ball": (new_bx, new_by)
+        },
+        collisions=[
+            ("ball", "paddle"),
+            ("ball", "bricks")
+        ]
+    )
 
     # Dynamic camera offset tracking
     doodle.set_camera(400.0, 300.0, 400.0 + ball_dx * 1.5, 300.0 + ball_dy * 1.5, 1.0, 0.0)
 
     # 3. Collision with Paddle
-    if doodle.check_collision("ball", "paddle"):
+    if res.get(("ball", "paddle"), False):
         ball_dx = ((new_bx + 8) - (px + 50)) * 0.16
         ball_dy = -abs(ball_dy)
 
@@ -102,7 +111,7 @@ def game_loop_tick():
         doodle.spawn_particles(new_bx + 8, new_by + 8, 8, "#00ffcc", 2.0, 0.3)
 
     # 4. Collision with Bricks
-    hit_brick = doodle.get_first_collision("ball", group="bricks")
+    hit_brick = res.get(("ball", "bricks"), None)
     if hit_brick:
         ball_dy = -ball_dy
         doodle.remove_node(hit_brick)

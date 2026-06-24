@@ -310,6 +310,13 @@ void LoadAndApplyCSS(UINode* root, const char* filepath) {
             while (*p && (*p == ' ' || *p == '\t' || *p == '\r' || *p == '\n' || *p == ';')) p++;
             if (*p == '}') break;
 
+            if (*p == '/' && *(p+1) == '*') {
+                p += 2;
+                char* end_comment = strstr(p, "*/");
+                if (end_comment) p = end_comment + 2;
+                continue;
+            }
+
             char prop[64];
             int pi = 0;
             while (*p && *p != ':' && *p != ' ' && *p != '\t' && *p != '\r' && *p != '\n') {

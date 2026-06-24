@@ -27,6 +27,10 @@ Camera2D camera = { .zoom = 1.0f };
 float shake_intensity = 0.0f;
 float shake_duration = 0.0f;
 
+int g_draw_calls = 0;
+int dev_tools_active = 0;
+int console_active = 0;
+
 // Collision Helper
 static UINode* FindCollisionNode(UINode* current, UINode* target, const char* group, Rectangle target_rec) {
     if (!current || !current->visible) return NULL;
@@ -383,9 +387,278 @@ static PyObject* doodle_shake_camera(PyObject* self, PyObject* args) {
     Py_RETURN_NONE;
 }
 
+double GetProcessMemoryUsage(void);
+
+// Developer Tools Variables and Functions
+static PyObject* console_callback = NULL;
+#define CONSOLE_MAX_LINES 20
+#define CONSOLE_LINE_LENGTH 128
+static char console_lines[CONSOLE_MAX_LINES][CONSOLE_LINE_LENGTH];
+static int console_lines_count = 0;
+static char console_input_buf[CONSOLE_LINE_LENGTH] = {0};
+static int console_input_len = 0;
+
+static int CountNodes(UINode* n) {
+    if (!n) return 0;
+    int count = 1;
+    for (int i = 0; i < n->child_count; i++) {
+        count += CountNodes(n->children[i]);
+    }
+    return count;
+}
+
+static void ConsolePrint(const char* text) {
+    const char* p = text;
+    char line[CONSOLE_LINE_LENGTH];
+    int li = 0;
+    while (*p) {
+        if (*p == '\n' || li >= CONSOLE_LINE_LENGTH - 1) {
+            line[li] = '\0';
+            if (console_lines_count < CONSOLE_MAX_LINES) {
+                strncpy(console_lines[console_lines_count++], line, CONSOLE_LINE_LENGTH - 1);
+            } else {
+                for (int i = 1; i < CONSOLE_MAX_LINES; i++) {
+                    strcpy(console_lines[i-1], console_lines[i]);
+                }
+                strncpy(console_lines[CONSOLE_MAX_LINES - 1], line, CONSOLE_LINE_LENGTH - 1);
+            }
+            li = 0;
+            if (*p == '\n') p++;
+        } else {
+            line[li++] = *p++;
+        }
+    }
+    if (li > 0) {
+        line[li] = '\0';
+        if (console_lines_count < CONSOLE_MAX_LINES) {
+            strncpy(console_lines[console_lines_count++], line, CONSOLE_LINE_LENGTH - 1);
+        } else {
+            for (int i = 1; i < CONSOLE_MAX_LINES; i++) {
+                strcpy(console_lines[i-1], console_lines[i]);
+            }
+            strncpy(console_lines[CONSOLE_MAX_LINES - 1], line, CONSOLE_LINE_LENGTH - 1);
+        }
+    }
+}
+
+static void ExecuteConsoleInput(void) {
+    if (console_input_len == 0) return;
+    
+    char cmd_echo[CONSOLE_LINE_LENGTH + 4];
+    sprintf(cmd_echo, ">>> %s", console_input_buf);
+    ConsolePrint(cmd_echo);
+    
+    if (console_callback) {
+        PyObject* arglist = Py_BuildValue("(s)", console_input_buf);
+        PyObject* result = PyObject_CallObject(console_callback, arglist);
+        Py_DECREF(arglist);
+        if (result) {
+            if (PyUnicode_Check(result)) {
+                const char* output = PyUnicode_AsUTF8(result);
+                if (output && strlen(output) > 0) {
+                    ConsolePrint(output);
+                }
+            } else if (result != Py_None) {
+                PyObject* str_res = PyObject_Str(result);
+                if (str_res) {
+                    const char* output = PyUnicode_AsUTF8(str_res);
+                    if (output && strlen(output) > 0) {
+                        ConsolePrint(output);
+                    }
+                    Py_DECREF(str_res);
+                }
+            }
+            Py_DECREF(result);
+        } else {
+            PyObject* ptype, *pvalue, *ptraceback;
+            PyErr_Fetch(&ptype, &pvalue, &ptraceback);
+            if (pvalue) {
+                PyObject* str_val = PyObject_Str(pvalue);
+                if (str_val) {
+                    const char* err_str = PyUnicode_AsUTF8(str_val);
+                    char err_msg[256];
+                    sprintf(err_msg, "Error: %s", err_str);
+                    ConsolePrint(err_msg);
+                    Py_DECREF(str_val);
+                }
+                Py_DECREF(pvalue);
+            }
+            Py_XDECREF(ptype);
+            Py_XDECREF(ptraceback);
+        }
+    } else {
+        ConsolePrint("Error: Console callback not registered.");
+    }
+    
+    memset(console_input_buf, 0, sizeof(console_input_buf));
+    console_input_len = 0;
+}
+
+static void UpdateConsoleInput(void) {
+    int key = GetCharPressed();
+    while (key > 0) {
+        if ((key >= 32) && (key <= 125) && (console_input_len < CONSOLE_LINE_LENGTH - 1)) {
+            console_input_buf[console_input_len++] = (char)key;
+            console_input_buf[console_input_len] = '\0';
+        }
+        key = GetCharPressed();
+    }
+    
+    if (IsKeyPressed(KEY_BACKSPACE)) {
+        if (console_input_len > 0) {
+            console_input_len--;
+            console_input_buf[console_input_len] = '\0';
+        }
+    }
+    
+    if (IsKeyPressed(KEY_ENTER) || IsKeyPressed(KEY_KP_ENTER)) {
+        ExecuteConsoleInput();
+    }
+}
+
+static void DrawDeveloperTools(int width, int height, double cpu_time_ms) {
+    if (IsKeyPressed(KEY_F3)) {
+        dev_tools_active = !dev_tools_active;
+    }
+    if (IsKeyPressed(KEY_F1) || IsKeyPressed(KEY_GRAVE)) {
+        console_active = !console_active;
+        if (console_active) dev_tools_active = 1;
+    }
+
+    if (console_active) {
+        UpdateConsoleInput();
+    }
+
+    if (dev_tools_active) {
+        int p_width = 220;
+        int p_height = 135;
+        int p_x = width - p_width - 15;
+        int p_y = 15;
+
+        DrawRectangleRounded((Rectangle){ (float)p_x, (float)p_y, (float)p_width, (float)p_height }, 0.08f, 8, (Color){ 15, 23, 42, 220 });
+        DrawRectangleRoundedLines((Rectangle){ (float)p_x, (float)p_y, (float)p_width, (float)p_height }, 0.08f, 8, 1.5f, (Color){ 56, 189, 248, 100 });
+
+        DrawText("DOODLE PROFILER", p_x + 12, p_y + 10, 12, (Color){ 56, 189, 248, 255 });
+        DrawLine(p_x + 12, p_y + 25, p_x + p_width - 12, p_y + 25, (Color){ 56, 189, 248, 50 });
+
+        char buf[64];
+        int fps = GetFPS();
+        float frame_time = GetFrameTime() * 1000.0f;
+        sprintf(buf, "FPS: %d (%.1f ms)", fps, frame_time);
+        DrawText(buf, p_x + 12, p_y + 32, 11, WHITE);
+
+        sprintf(buf, "CPU: %.2f ms", cpu_time_ms);
+        DrawText(buf, p_x + 12, p_y + 48, 11, (Color){ 0, 255, 204, 255 });
+
+        sprintf(buf, "Draw Calls: %d", g_draw_calls);
+        DrawText(buf, p_x + 12, p_y + 64, 11, WHITE);
+
+        double ram = GetProcessMemoryUsage();
+        if (ram > 0.0) {
+            sprintf(buf, "RAM: %.1f MB", ram);
+        } else {
+            sprintf(buf, "RAM: N/A");
+        }
+        DrawText(buf, p_x + 12, p_y + 80, 11, WHITE);
+
+        int node_count = CountNodes(root);
+        int p_count = GetActiveParticleCount();
+        sprintf(buf, "Nodes: %d | Part: %d", node_count, p_count);
+        DrawText(buf, p_x + 12, p_y + 96, 11, WHITE);
+
+        static float frame_times[60] = {0};
+        static int ft_index = 0;
+        frame_times[ft_index] = frame_time;
+        ft_index = (ft_index + 1) % 60;
+
+        int graph_x = p_x + 12;
+        int graph_y = p_y + 125;
+        int graph_w = p_width - 24;
+        int graph_h = 12;
+
+        DrawRectangle(graph_x, graph_y - graph_h, graph_w, graph_h, (Color){ 10, 15, 28, 100 });
+        for (int i = 0; i < 59; i++) {
+            int idx1 = (ft_index + i) % 60;
+            int idx2 = (ft_index + i + 1) % 60;
+            
+            float val1 = frame_times[idx1];
+            float val2 = frame_times[idx2];
+            if (val1 > 33.3f) val1 = 33.3f;
+            if (val2 > 33.3f) val2 = 33.3f;
+
+            float h1 = (val1 / 33.3f) * (float)graph_h;
+            float h2 = (val2 / 33.3f) * (float)graph_h;
+
+            float x1 = (float)graph_x + ((float)i / 59.0f) * (float)graph_w;
+            float x2 = (float)graph_x + ((float)(i + 1) / 59.0f) * (float)graph_w;
+
+            DrawLineEx(
+                (Vector2){ x1, (float)graph_y - h1 },
+                (Vector2){ x2, (float)graph_y - h2 },
+                1.0f,
+                (val1 > 18.0f) ? RED : (Color){ 0, 255, 204, 180 }
+            );
+        }
+    }
+
+    if (console_active) {
+        int c_height = 180;
+        int c_y = height - c_height;
+
+        DrawRectangle(0, c_y, width, c_height, (Color){ 10, 15, 28, 240 });
+        DrawLineEx((Vector2){ 0, (float)c_y }, (Vector2){ (float)width, (float)c_y }, 2.0f, (Color){ 0, 255, 204, 255 });
+
+        DrawText("DOODLE PYTHON CONSOLE (Press F1 or ` to close)", 15, c_y + 8, 10, (Color){ 56, 189, 248, 150 });
+
+        int start_idx = console_lines_count - 7;
+        if (start_idx < 0) start_idx = 0;
+        int draw_y = c_y + 24;
+        for (int i = start_idx; i < console_lines_count; i++) {
+            Color c = WHITE;
+            if (strncmp(console_lines[i], ">>>", 3) == 0) {
+                c = (Color){ 0, 255, 204, 255 };
+            } else if (strncmp(console_lines[i], "Error", 5) == 0) {
+                c = RED;
+            } else {
+                c = (Color){ 200, 200, 200, 255 };
+            }
+            DrawText(console_lines[i], 15, draw_y, 12, c);
+            draw_y += 18;
+        }
+
+        draw_y = height - 25;
+        DrawRectangle(10, draw_y - 2, width - 20, 20, (Color){ 15, 23, 42, 255 });
+        DrawRectangleLines(10, draw_y - 2, width - 20, 20, (Color){ 56, 189, 248, 100 });
+
+        DrawText(">>> ", 18, draw_y + 2, 13, (Color){ 0, 255, 204, 255 });
+        DrawText(console_input_buf, 48, draw_y + 2, 13, WHITE);
+
+        if (((int)(GetTime() * 2.0) % 2) == 0) {
+            int text_w = MeasureText(console_input_buf, 13);
+            DrawText("|", 48 + text_w, draw_y + 1, 13, (Color){ 0, 255, 204, 255 });
+        }
+    }
+}
+
+static PyObject* doodle_register_console_callback(PyObject* self, PyObject* args) {
+    PyObject* temp = NULL;
+    if (!PyArg_ParseTuple(args, "O", &temp)) return NULL;
+    if (!PyCallable_Check(temp)) {
+        PyErr_SetString(PyExc_TypeError, "Parameter must be callable");
+        return NULL;
+    }
+    Py_XINCREF(temp);
+    Py_XDECREF(console_callback);
+    console_callback = temp;
+    Py_RETURN_NONE;
+}
+
 static PyObject* doodle_is_key_down(PyObject* self, PyObject* args) {
     int key;
     if (!PyArg_ParseTuple(args, "i", &key)) return NULL;
+    if (console_active) {
+        Py_RETURN_FALSE;
+    }
     if (IsKeyDown(key)) {
         Py_RETURN_TRUE;
     }
@@ -395,6 +668,9 @@ static PyObject* doodle_is_key_down(PyObject* self, PyObject* args) {
 static PyObject* doodle_is_key_pressed(PyObject* self, PyObject* args) {
     int key;
     if (!PyArg_ParseTuple(args, "i", &key)) return NULL;
+    if (console_active) {
+        Py_RETURN_FALSE;
+    }
     if (IsKeyPressed(key)) {
         Py_RETURN_TRUE;
     }
@@ -519,6 +795,143 @@ static void RestorePositions(UINode* n) {
     }
 }
 
+static PyObject* doodle_batch_process(PyObject* self, PyObject* args, PyObject* kwargs) {
+    PyObject* positions_dict = NULL;
+    PyObject* text_dict = NULL;
+    PyObject* visibility_dict = NULL;
+    PyObject* collisions_list = NULL;
+
+    static char* kwlist[] = {"positions", "text_updates", "visibility_updates", "collisions", NULL};
+    if (!PyArg_ParseTupleAndKeywords(args, kwargs, "|OOOO", kwlist,
+                                     &positions_dict, &text_dict, &visibility_dict, &collisions_list)) {
+        return NULL;
+    }
+
+    // 1. Process positions
+    if (positions_dict && positions_dict != Py_None && PyDict_Check(positions_dict)) {
+        PyObject *key, *value;
+        Py_ssize_t pos = 0;
+        while (PyDict_Next(positions_dict, &pos, &key, &value)) {
+            const char* id = PyUnicode_AsUTF8(key);
+            if (id && (PyTuple_Check(value) || PyList_Check(value)) && PySequence_Size(value) >= 2) {
+                PyObject* x_obj = PySequence_GetItem(value, 0);
+                PyObject* y_obj = PySequence_GetItem(value, 1);
+                float x = (float)PyFloat_AsDouble(x_obj);
+                float y = (float)PyFloat_AsDouble(y_obj);
+                Py_XDECREF(x_obj);
+                Py_XDECREF(y_obj);
+                UINode* node = FindNodeById(root, id);
+                if (node) {
+                    node->layout.x = x;
+                    node->layout.y = y;
+                    node->position_set = 1;
+                    layout_dirty = 1;
+                }
+            }
+        }
+    }
+
+    // 2. Process text updates
+    if (text_dict && text_dict != Py_None && PyDict_Check(text_dict)) {
+        PyObject *key, *value;
+        Py_ssize_t pos = 0;
+        while (PyDict_Next(text_dict, &pos, &key, &value)) {
+            const char* id = PyUnicode_AsUTF8(key);
+            const char* text = PyUnicode_AsUTF8(value);
+            if (id && text) {
+                UINode* node = FindNodeById(root, id);
+                if (node && strcmp(node->text_content, text) != 0) {
+                    strncpy(node->text_content, text, sizeof(node->text_content) - 1);
+                    node->text_content[sizeof(node->text_content) - 1] = '\0';
+                    layout_dirty = 1;
+                }
+            }
+        }
+    }
+
+    // 3. Process visibility updates
+    if (visibility_dict && visibility_dict != Py_None && PyDict_Check(visibility_dict)) {
+        PyObject *key, *value;
+        Py_ssize_t pos = 0;
+        while (PyDict_Next(visibility_dict, &pos, &key, &value)) {
+            const char* id = PyUnicode_AsUTF8(key);
+            if (id) {
+                int visible = PyObject_IsTrue(value);
+                UINode* node = FindNodeById(root, id);
+                if (node && node->visible != visible) {
+                    node->visible = visible;
+                    layout_dirty = 1;
+                }
+            }
+        }
+    }
+
+    // 4. Process collisions
+    PyObject* collision_results = PyDict_New();
+    if (collisions_list && collisions_list != Py_None && PyList_Check(collisions_list)) {
+        Py_ssize_t len = PyList_Size(collisions_list);
+        for (Py_ssize_t i = 0; i < len; i++) {
+            PyObject* item = PyList_GetItem(collisions_list, i);
+            if (PyTuple_Check(item) && PyTuple_Size(item) >= 2) {
+                PyObject* key_a = PyTuple_GetItem(item, 0);
+                PyObject* key_b = PyTuple_GetItem(item, 1);
+                const char* id_a = PyUnicode_AsUTF8(key_a);
+                const char* id_b_or_group = PyUnicode_AsUTF8(key_b);
+
+                if (id_a && id_b_or_group) {
+                    UINode* node_a = FindNodeById(root, id_a);
+                    if (node_a && node_a->visible) {
+                        UINode* node_b = FindNodeById(root, id_b_or_group);
+                        if (node_b) {
+                            if (node_b->visible) {
+                                int col = 0;
+                                if (node_a->type == NODE_CIRCLE && node_b->type == NODE_CIRCLE) {
+                                    float r_a = node_a->radius > 0 ? node_a->radius : node_a->layout.width / 2.0f;
+                                    float r_b = node_b->radius > 0 ? node_b->radius : node_b->layout.width / 2.0f;
+                                    Vector2 center_a = {node_a->layout.x + r_a, node_a->layout.y + r_a};
+                                    Vector2 center_b = {node_b->layout.x + r_b, node_b->layout.y + r_b};
+                                    col = CheckCollisionCircles(center_a, r_a, center_b, r_b);
+                                } else if (node_a->type == NODE_CIRCLE) {
+                                    float r = node_a->radius > 0 ? node_a->radius : node_a->layout.width / 2.0f;
+                                    Vector2 center = {node_a->layout.x + r, node_a->layout.y + r};
+                                    Rectangle rec = {node_b->layout.x, node_b->layout.y, node_b->layout.width, node_b->layout.height};
+                                    col = CheckCollisionCircleRec(center, r, rec);
+                                } else if (node_b->type == NODE_CIRCLE) {
+                                    float r = node_b->radius > 0 ? node_b->radius : node_b->layout.width / 2.0f;
+                                    Vector2 center = {node_b->layout.x + r, node_b->layout.y + r};
+                                    Rectangle rec = {node_a->layout.x, node_a->layout.y, node_a->layout.width, node_a->layout.height};
+                                    col = CheckCollisionCircleRec(center, r, rec);
+                                } else {
+                                    Rectangle rec_a = {node_a->layout.x, node_a->layout.y, node_a->layout.width, node_a->layout.height};
+                                    Rectangle rec_b = {node_b->layout.x, node_b->layout.y, node_b->layout.width, node_b->layout.height};
+                                    col = CheckCollisionRecs(rec_a, rec_b);
+                                }
+                                PyDict_SetItem(collision_results, item, col ? Py_True : Py_False);
+                            } else {
+                                PyDict_SetItem(collision_results, item, Py_False);
+                            }
+                        } else {
+                            Rectangle rec = {node_a->layout.x, node_a->layout.y, node_a->layout.width, node_a->layout.height};
+                            UINode* collision = FindCollisionNode(root, node_a, id_b_or_group, rec);
+                            if (collision) {
+                                PyObject* col_id = PyUnicode_FromString(collision->id);
+                                PyDict_SetItem(collision_results, item, col_id);
+                                Py_DECREF(col_id);
+                            } else {
+                                PyDict_SetItem(collision_results, item, Py_None);
+                            }
+                        }
+                    } else {
+                        PyDict_SetItem(collision_results, item, Py_False);
+                    }
+                }
+            }
+        }
+    }
+
+    return collision_results;
+}
+
 static PyObject* doodle_run(PyObject* self, PyObject* args, PyObject* kwargs) {
     char* layout = "layout.html";
     char* style = "styles.css";
@@ -585,6 +998,7 @@ static PyObject* doodle_run(PyObject* self, PyObject* args, PyObject* kwargs) {
             layout_dirty = 1;
         }
 
+        double tick_start = GetTime();
         if (tick_callback) {
             PyObject* result = PyObject_CallObject(tick_callback, NULL);
             if (!result) {
@@ -593,6 +1007,8 @@ static PyObject* doodle_run(PyObject* self, PyObject* args, PyObject* kwargs) {
                 Py_DECREF(result);
             }
         }
+        double tick_end = GetTime();
+        double cpu_time_ms = (tick_end - tick_start) * 1000.0;
 
         if (layout_dirty && root) {
             ComputeLayout(root, 0, 0, (float)width, (float)height);
@@ -605,10 +1021,13 @@ static PyObject* doodle_run(PyObject* self, PyObject* args, PyObject* kwargs) {
         ClearBackground(BLACK);
         
         if (root) {
+            g_draw_calls = 0;
             DrawUINode(root);
         }
         
         UpdateAndDrawParticles();
+        
+        DrawDeveloperTools(width, height, cpu_time_ms);
         
         EndDrawing();
     }
@@ -662,6 +1081,8 @@ static PyMethodDef DoodleMethods[] = {
     {"shake_camera", doodle_shake_camera, METH_VARARGS, "Trigger camera screen shake"},
     {"spawn_particles", doodle_spawn_particles, METH_VARARGS, "Spawn particle explosion burst"},
     {"play_synth", doodle_play_synth, METH_VARARGS, "Play procedurally synthesized tone"},
+    {"register_console_callback", doodle_register_console_callback, METH_VARARGS, "Register console command callback"},
+    {"batch_process", (PyCFunction)doodle_batch_process, METH_VARARGS | METH_KEYWORDS, "Batch process updates and collisions"},
     {"run", (PyCFunction)doodle_run, METH_VARARGS | METH_KEYWORDS, "Start the engine loop"},
     {NULL, NULL, 0, NULL}
 };

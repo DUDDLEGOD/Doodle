@@ -4,6 +4,20 @@
 #include "particles.h"
 #include <string.h>
 
+static Shader current_active_shader = {0};
+
+void SetActiveShader(Shader sh) {
+    if (sh.id != current_active_shader.id) {
+        if (current_active_shader.id > 0) {
+            EndShaderMode();
+        }
+        if (sh.id > 0) {
+            BeginShaderMode(sh);
+        }
+        current_active_shader = sh;
+    }
+}
+
 static inline int GetActiveZIndex(UINode* n) {
     if (!n) return 0;
     if (n->has_hover_style && n->currently_hovered) {
@@ -32,6 +46,10 @@ void GetSortedChildren(UINode* node, UINode** sorted_list) {
 void DrawUINode(UINode* node) {
     if (!node || !node->visible) return;
 
+    if (node->parent == NULL) {
+        current_active_shader = (Shader){0};
+    }
+
     StyleProps* active_style = &node->style;
     if (node->has_hover_style && node->currently_hovered) {
         active_style = &node->hover_style;
@@ -44,6 +62,9 @@ void DrawUINode(UINode* node) {
             arena_target = LoadRenderTexture(800, 600);
             arena_target_created = 1;
         }
+
+        Shader prev_shader = current_active_shader;
+        SetActiveShader((Shader){0});
 
         BeginTextureMode(arena_target);
         ClearBackground(BLACK);
@@ -77,31 +98,33 @@ void DrawUINode(UINode* node) {
         if (has_shader) {
             Shader sh = GetCachedShader(active_style->shader_path);
             if (sh.id > 0) {
-                BeginShaderMode(sh);
+                SetActiveShader(sh);
             }
         }
 
         Rectangle src = { node->layout.x, arena_target.texture.height - node->layout.y - node->layout.height, node->layout.width, -node->layout.height };
         Rectangle dest = { node->layout.x, node->layout.y, node->layout.width, node->layout.height };
-        DrawTexturePro(arena_target.texture, src, dest, (Vector2){0,0}, 0.0f, WHITE);
+        DrawTexturePro(arena_target.texture, src, dest, (Vector2){0,0}, 0.0f, WHITE); g_draw_calls++;
 
-        if (has_shader) {
-            EndShaderMode();
-        }
+        SetActiveShader(prev_shader);
 
         if (active_style->border_width > 0 && active_style->border_color.a > 0) {
             Rectangle border_rec = {node->layout.x, node->layout.y, node->layout.width, node->layout.height};
-            DrawRectangleLinesEx(border_rec, active_style->border_width, active_style->border_color);
+            DrawRectangleLinesEx(border_rec, active_style->border_width, active_style->border_color); g_draw_calls++;
         }
 
+        if (node->parent == NULL) {
+            SetActiveShader((Shader){0});
+        }
         return;
     }
 
+    Shader prev_shader = current_active_shader;
     int has_shader = (strlen(active_style->shader_path) > 0);
     if (has_shader) {
         Shader sh = GetCachedShader(active_style->shader_path);
         if (sh.id > 0) {
-            BeginShaderMode(sh);
+            SetActiveShader(sh);
         }
     }
 
@@ -112,9 +135,9 @@ void DrawUINode(UINode* node) {
                 float min_dim = node->layout.width > node->layout.height ? node->layout.height : node->layout.width;
                 float roundness = min_dim > 0 ? (active_style->border_radius / min_dim) : 0.0f;
                 if (roundness > 1.0f) roundness = 1.0f;
-                DrawRectangleRounded(rec, roundness, 8, active_style->bg_color);
+                DrawRectangleRounded(rec, roundness, 8, active_style->bg_color); g_draw_calls++;
             } else {
-                DrawRectangle(node->layout.x, node->layout.y, node->layout.width, node->layout.height, active_style->bg_color);
+                DrawRectangle(node->layout.x, node->layout.y, node->layout.width, node->layout.height, active_style->bg_color); g_draw_calls++;
             }
         }
     } else if (node->type == NODE_TEXT || node->type == NODE_BUTTON) {
@@ -124,9 +147,9 @@ void DrawUINode(UINode* node) {
                 float min_dim = node->layout.width > node->layout.height ? node->layout.height : node->layout.width;
                 float roundness = min_dim > 0 ? (active_style->border_radius / min_dim) : 0.0f;
                 if (roundness > 1.0f) roundness = 1.0f;
-                DrawRectangleRounded(rec, roundness, 8, active_style->bg_color);
+                DrawRectangleRounded(rec, roundness, 8, active_style->bg_color); g_draw_calls++;
             } else {
-                DrawRectangle(node->layout.x, node->layout.y, node->layout.width, node->layout.height, active_style->bg_color);
+                DrawRectangle(node->layout.x, node->layout.y, node->layout.width, node->layout.height, active_style->bg_color); g_draw_calls++;
             }
         }
         
@@ -160,9 +183,9 @@ void DrawUINode(UINode* node) {
             }
 
             if (has_custom_font) {
-                DrawTextEx(font, text, (Vector2){draw_x, draw_y}, font_size, 1.0f, text_color);
+                DrawTextEx(font, text, (Vector2){draw_x, draw_y}, font_size, 1.0f, text_color); g_draw_calls++;
             } else {
-                DrawText(text, (int)draw_x, (int)draw_y, (int)font_size, text_color);
+                DrawText(text, (int)draw_x, (int)draw_y, (int)font_size, text_color); g_draw_calls++;
             }
         }
     } else if (node->type == NODE_IMAGE) {
@@ -178,15 +201,15 @@ void DrawUINode(UINode* node) {
                 };
                 Vector2 origin = {node->layout.width / 2.0f, node->layout.height / 2.0f};
                 Color tint = (active_style->tint_color.a > 0) ? active_style->tint_color : WHITE;
-                DrawTexturePro(tex, src, dest, origin, active_style->rotation, tint);
+                DrawTexturePro(tex, src, dest, origin, active_style->rotation, tint); g_draw_calls++;
             }
         }
     } else if (node->type == NODE_CIRCLE) {
         float r = node->radius;
         if (r <= 0) r = node->layout.width / 2.0f;
-        DrawCircle(node->layout.x + r, node->layout.y + r, r, node->shape_color);
+        DrawCircle(node->layout.x + r, node->layout.y + r, r, node->shape_color); g_draw_calls++;
     } else if (node->type == NODE_LINE) {
-        DrawLineEx((Vector2){node->layout.x, node->layout.y}, (Vector2){node->layout.x + node->x2, node->layout.y + node->y2}, node->thickness, node->shape_color);
+        DrawLineEx((Vector2){node->layout.x, node->layout.y}, (Vector2){node->layout.x + node->x2, node->layout.y + node->y2}, node->thickness, node->shape_color); g_draw_calls++;
     }
 
     // Border drawing
@@ -196,9 +219,9 @@ void DrawUINode(UINode* node) {
             float min_dim = node->layout.width > node->layout.height ? node->layout.height : node->layout.width;
             float roundness = min_dim > 0 ? (active_style->border_radius / min_dim) : 0.0f;
             if (roundness > 1.0f) roundness = 1.0f;
-            DrawRectangleRoundedLines(rec, roundness, 8, active_style->border_width, active_style->border_color);
+            DrawRectangleRoundedLines(rec, roundness, 8, active_style->border_width, active_style->border_color); g_draw_calls++;
         } else {
-            DrawRectangleLinesEx(rec, active_style->border_width, active_style->border_color);
+            DrawRectangleLinesEx(rec, active_style->border_width, active_style->border_color); g_draw_calls++;
         }
     }
 
@@ -211,6 +234,10 @@ void DrawUINode(UINode* node) {
     }
 
     if (has_shader) {
-        EndShaderMode();
+        SetActiveShader(prev_shader);
+    }
+
+    if (node->parent == NULL) {
+        SetActiveShader((Shader){0});
     }
 }

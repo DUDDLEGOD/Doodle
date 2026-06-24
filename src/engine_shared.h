@@ -11,4 +11,8 @@ extern Camera2D camera;
 extern float shake_intensity;
 extern float shake_duration;
 
+extern int g_draw_calls;
+extern int dev_tools_active;
+extern int console_active;
+
 #endif // ENGINE_SHARED_H

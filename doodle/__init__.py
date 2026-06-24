@@ -199,6 +199,31 @@ def _update_templates(state):
         except Exception:
             pass
 
+def _default_console_callback(cmd):
+    import io
+    main_mod = sys.modules.get('__main__')
+    namespace = main_mod.__dict__ if main_mod else globals()
+    
+    old_stdout = sys.stdout
+    new_stdout = io.StringIO()
+    sys.stdout = new_stdout
+    
+    try:
+        try:
+            code = compile(cmd.strip(), '<console>', 'eval')
+            res = eval(code, namespace, namespace)
+            if res is not None:
+                print(res)
+        except Exception:
+            code = compile(cmd, '<console>', 'exec')
+            exec(code, namespace, namespace)
+    except Exception as e:
+        print(f"Error: {e}")
+    finally:
+        sys.stdout = old_stdout
+        
+    return new_stdout.getvalue().rstrip('\n')
+
 # Extended main run loop
 def run(layout="layout.html", style="styles.css", width=800, height=600, title="Doodle Engine", state=None):
     # Automatically change working directory to the directory of the script being run
@@ -276,5 +301,6 @@ def run(layout="layout.html", style="styles.css", width=800, height=600, title="
 
     # Setup Python wrapper's registration hook
     _doodle.register_tick_callback(wrapper_tick)
+    _doodle.register_console_callback(_default_console_callback)
     
     return _doodle.run(layout=layout, style=style, width=width, height=height, title=title)

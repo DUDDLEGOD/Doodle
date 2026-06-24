@@ -1,7 +1,9 @@
 #include "daudio.h"
-#include <math.h>
+#include "fast_math.h"
 #include <stdlib.h>
 #include <string.h>
+
+static unsigned int synth_rand_seed = 123456789U;
 
 #ifndef PI
 #define PI 3.14159265358979323846f
@@ -70,7 +72,7 @@ void AudioSynthCallback(void *buffer, unsigned int frames) {
 
             switch (voices[i].wave_type) {
                 case WAVE_SINE:
-                    val = sinf(p);
+                    val = fast_sin_range(p - PI);
                     break;
                 case WAVE_SQUARE:
                     val = (p < PI) ? 1.0f : -1.0f;
@@ -82,7 +84,7 @@ void AudioSynthCallback(void *buffer, unsigned int frames) {
                     val = 2.0f * p * INV_TWO_PI - 1.0f;
                     break;
                 case WAVE_NOISE:
-                    val = ((float)rand() / (float)RAND_MAX) * 2.0f - 1.0f;
+                    val = fast_rand_f(&synth_rand_seed);
                     break;
             }
 

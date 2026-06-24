@@ -47,6 +47,9 @@ typedef struct {
     
     char text_align[16];
     char shader_path[256];
+    float rotation;
+    Color tint_color;
+    int z_index;
 } StyleProps;
 
 typedef struct UINode {
@@ -85,20 +88,19 @@ typedef void (*CSSPropertyHandler)(UINode* node, const char* value);
 typedef struct {
     const char* property_name;
     CSSPropertyHandler handler;
+    int affects_layout;
 } CSSMap;
+
+void MarkNodeHashTableDirty(void);
 
 // Memory Management & Tree functions
 UINode* CreateNode(NodeType type);
 void FreeNode(UINode* node);
 void AddChild(UINode* parent, UINode* child);
-UINode* FindNodeById(UINode* root, const char* id);
-void RemoveNode(UINode* root, UINode* node_to_remove);
+UINode* FindNodeById(UINode* root_node, const char* id);
+void RemoveNode(UINode* root_node, UINode* node_to_remove);
 
-// HTML & CSS parsers
-UINode* ParseHTML(const char* filepath);
-void LoadAndApplyCSS(UINode* root, const char* filepath);
-
-// Layout calculation
-void ComputeLayout(UINode* node, float parent_x, float parent_y, float parent_width, float parent_height);
+// Style property reader
+void GetStyleProperty(UINode* node, const char* name, char* out_value, int max_len);
 
 #endif // MPARSER_H

@@ -48,7 +48,18 @@ class NodeStyleProxy:
             css_name = name.replace('_', '-')
             _doodle.set_style(self._id, css_name, str(value))
     def __getattr__(self, name):
-        return ""
+        if name.startswith('_'):
+            raise AttributeError(name)
+        css_name = name.replace('_', '-')
+        val = _doodle.get_style(self._id, css_name)
+        if not val:
+            return ""
+        try:
+            if '.' in val:
+                return float(val)
+            return int(val)
+        except ValueError:
+            return val
 
 class Node:
     def __init__(self, node_id):
@@ -190,6 +201,15 @@ def _update_templates(state):
 
 # Extended main run loop
 def run(layout="layout.html", style="styles.css", width=800, height=600, title="Doodle Engine", state=None):
+    # Automatically change working directory to the directory of the script being run
+    if sys.argv and sys.argv[0]:
+        script_dir = os.path.dirname(os.path.abspath(sys.argv[0]))
+        if script_dir and os.path.isdir(script_dir):
+            try:
+                os.chdir(script_dir)
+            except Exception as e:
+                print(f"Directory change warning: {e}")
+
     if hasattr(sys, "_MEIPASS"):
         try:
             os.chdir(sys._MEIPASS)

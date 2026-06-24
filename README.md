@@ -1,4 +1,4 @@
-# Doodle Engine 🎨🚀
+# Doodle Engine
 ### Hardware-Accelerated Hybrid C-Python UI & 2D Game Engine
 
 Doodle is a high-performance, lightweight UI and 2D game engine combining a **native C rendering core (powered by Raylib)** with a **highly reactive Python scripting layer**.
@@ -7,7 +7,7 @@ By bypassing heavy browser runtimes (like Chromium/Electron), Doodle parses dyna
 
 ---
 
-## 📂 Repository Organization
+## Repository Organization
 
 ```text
 Doodle/
@@ -36,7 +36,7 @@ Doodle/
 
 ---
 
-## 🛠️ Getting Started & Compilation
+## Getting Started & Compilation
 
 ### 1. Requirements
 * **OS**: Windows (x64) / linux
@@ -68,7 +68,7 @@ cd examples/breakout
 
 ---
 
-## 🏗️ XML Markup (`layout.html`) & CSS (`styles.css`)
+## XML Markup (`layout.html`) & CSS (`styles.css`)
 
 Doodle supports layout-driven layouts with traditional tag structures and inline event bindings.
 
@@ -93,7 +93,7 @@ Directly attach Python functions inline:
 
 ---
 
-## 🐍 Python OOP APIs
+## Python OOP APIs
 
 ### Initialization
 ```python

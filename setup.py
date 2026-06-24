@@ -76,7 +76,12 @@ elif sys.platform == 'win32':
 
 doodle_module = Extension(
     '_doodle',
-    sources=['src/expose_raylib.c', 'src/mparser.c', 'src/dutils.c', 'src/daudio.c'],
+    sources=[
+        'src/expose_raylib.c', 'src/mparser.c', 'src/dutils.c', 'src/daudio.c',
+        'src/color.c', 'src/unit.c', 'src/string_utils.c', 'src/dom_utils.c',
+        'src/html_parser.c', 'src/css_parser.c', 'src/layout.c', 'src/renderer.c',
+        'src/particles.c', 'src/cache.c'
+    ],
     include_dirs=include_dirs,
     library_dirs=library_dirs,
     libraries=libraries,

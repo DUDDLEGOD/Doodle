@@ -2,278 +2,30 @@
 #include <Python.h>
 #include "raylib.h"
 #include "mparser.h"
-#include "dutils.h"
+#include "color.h"
+#include "unit.h"
+#include "string_utils.h"
+#include "dom_utils.h"
 #include "daudio.h"
+#include "html_parser.h"
+#include "css_parser.h"
+#include "layout.h"
+#include "renderer.h"
+#include "particles.h"
+#include "cache.h"
 #include <sys/stat.h>
 #include <time.h>
 #include <string.h>
 #include <math.h>
 
-#ifndef PI
-#define PI 3.14159265358979323846f
-#endif
-
-#ifndef DEG2RAD
-#define DEG2RAD (PI/180.0f)
-#endif
-
-static UINode* root = NULL;
-static int layout_dirty = 1;
+UINode* root = NULL;
+int layout_dirty = 1;
 static PyObject* tick_callback = NULL;
 
 // Camera state
-static Camera2D camera = { .zoom = 1.0f };
-static float shake_intensity = 0.0f;
-static float shake_duration = 0.0f;
-
-// Particle System
-typedef struct {
-    Vector2 position;
-    Vector2 velocity;
-    Color color;
-    float size;
-    float lifetime;
-    float inv_max_lifetime;
-} Particle;
-
-#define MAX_PARTICLES 2048
-static Particle particle_pool[MAX_PARTICLES];
-static int particle_count = 0;
-static int particles_drawn_this_frame = 0;
-
-static PyObject* doodle_spawn_particles(PyObject* self, PyObject* args) {
-    float x, y;
-    int count;
-    const char* color_hex;
-    float speed;
-    float lifetime;
-    if (!PyArg_ParseTuple(args, "ffisff", &x, &y, &count, &color_hex, &speed, &lifetime)) return NULL;
-    
-    Color col = ParseColor(color_hex);
-    float inv_life = (lifetime > 0.0f) ? (1.0f / lifetime) : 0.0f;
-    
-    for (int i = 0; i < count; i++) {
-        int idx = -1;
-        if (particle_count < MAX_PARTICLES) {
-            idx = particle_count++;
-        } else {
-            idx = GetRandomValue(0, MAX_PARTICLES - 1);
-        }
-        
-        if (idx != -1) {
-            particle_pool[idx].position = (Vector2){x, y};
-            float angle = GetRandomValue(0, 360) * DEG2RAD;
-            float current_speed = GetRandomValue(20, 100) * 0.01f * speed;
-            particle_pool[idx].velocity = (Vector2){ cosf(angle) * current_speed, sinf(angle) * current_speed };
-            particle_pool[idx].color = col;
-            particle_pool[idx].size = (float)GetRandomValue(2, 6);
-            particle_pool[idx].lifetime = lifetime;
-            particle_pool[idx].inv_max_lifetime = inv_life;
-        }
-    }
-    Py_RETURN_NONE;
-}
-
-static void UpdateAndDrawParticles(void) {
-    if (particles_drawn_this_frame) return;
-    particles_drawn_this_frame = 1;
-    float dt = GetFrameTime();
-    int active_idx = 0;
-    for (int i = 0; i < particle_count; i++) {
-        particle_pool[i].lifetime -= dt;
-        if (particle_pool[i].lifetime > 0.0f) {
-            particle_pool[i].position.x += particle_pool[i].velocity.x * dt * 60.0f;
-            particle_pool[i].position.y += particle_pool[i].velocity.y * dt * 60.0f;
-            
-            Color c = particle_pool[i].color;
-            c.a = (unsigned char)(255.0f * particle_pool[i].lifetime * particle_pool[i].inv_max_lifetime);
-            DrawRectangleV(particle_pool[i].position, (Vector2){particle_pool[i].size, particle_pool[i].size}, c);
-            
-            if (active_idx != i) {
-                particle_pool[active_idx] = particle_pool[i];
-            }
-            active_idx++;
-        }
-    }
-    particle_count = active_idx;
-}
-
-// Caching Systems
-typedef struct {
-    char path[256];
-    Texture2D texture;
-} CachedTexture;
-
-static CachedTexture texture_cache[128];
-static int texture_cache_count = 0;
-
-static Texture2D GetCachedTexture(const char* path) {
-    for (int i = 0; i < texture_cache_count; i++) {
-        if (strcmp(texture_cache[i].path, path) == 0) {
-            return texture_cache[i].texture;
-        }
-    }
-    Texture2D tex = LoadTexture(path);
-    if (texture_cache_count < 128) {
-        strncpy(texture_cache[texture_cache_count].path, path, 255);
-        texture_cache[texture_cache_count].texture = tex;
-        texture_cache_count++;
-    }
-    return tex;
-}
-
-static void UnloadCachedTextures(void) {
-    for (int i = 0; i < texture_cache_count; i++) {
-        UnloadTexture(texture_cache[i].texture);
-    }
-    texture_cache_count = 0;
-}
-
-// Shader Cache
-typedef struct {
-    char path[256];
-    Shader shader;
-} CachedShader;
-
-static CachedShader shader_cache[32];
-static int shader_cache_count = 0;
-
-static Shader GetCachedShader(const char* path) {
-    for (int i = 0; i < shader_cache_count; i++) {
-        if (strcmp(shader_cache[i].path, path) == 0) {
-            return shader_cache[i].shader;
-        }
-    }
-    Shader sh = LoadShader(NULL, path);
-    if (shader_cache_count < 32) {
-        strncpy(shader_cache[shader_cache_count].path, path, 255);
-        shader_cache[shader_cache_count].shader = sh;
-        shader_cache_count++;
-    }
-    return sh;
-}
-
-static void UnloadCachedShaders(void) {
-    for (int i = 0; i < shader_cache_count; i++) {
-        UnloadShader(shader_cache[i].shader);
-    }
-    shader_cache_count = 0;
-}
-
-// Font Cache
-typedef struct {
-    char path[256];
-    Font font;
-} CachedFont;
-
-static CachedFont font_cache[32];
-static int font_cache_count = 0;
-
-static Font GetCachedFont(const char* path) {
-    for (int i = 0; i < font_cache_count; i++) {
-        if (strcmp(font_cache[i].path, path) == 0) {
-            return font_cache[i].font;
-        }
-    }
-    Font fnt = LoadFont(path);
-    if (font_cache_count < 32) {
-        strncpy(font_cache[font_cache_count].path, path, 255);
-        font_cache[font_cache_count].font = fnt;
-        font_cache_count++;
-    }
-    return fnt;
-}
-
-static void UnloadCachedFonts(void) {
-    for (int i = 0; i < font_cache_count; i++) {
-        UnloadFont(font_cache[i].font);
-    }
-    font_cache_count = 0;
-}
-
-typedef struct {
-    char path[256];
-    Sound sound;
-} CachedSound;
-
-static CachedSound sound_cache[128];
-static int sound_cache_count = 0;
-
-static Sound GetCachedSound(const char* path) {
-    for (int i = 0; i < sound_cache_count; i++) {
-        if (strcmp(sound_cache[i].path, path) == 0) {
-            return sound_cache[i].sound;
-        }
-    }
-    Sound snd = LoadSound(path);
-    if (sound_cache_count < 128) {
-        strncpy(sound_cache[sound_cache_count].path, path, 255);
-        sound_cache[sound_cache_count].sound = snd;
-        sound_cache_count++;
-    }
-    return snd;
-}
-
-static void UnloadCachedSounds(void) {
-    for (int i = 0; i < sound_cache_count; i++) {
-        UnloadSound(sound_cache[i].sound);
-    }
-    sound_cache_count = 0;
-}
-
-typedef struct {
-    char path[256];
-    Music music;
-    int is_playing;
-} ActiveMusic;
-
-static ActiveMusic active_musics[16];
-static int active_music_count = 0;
-
-static void SetupAudioNodes(UINode* node) {
-    if (!node) return;
-    if (node->type == NODE_AUDIO && strlen(node->asset_path) > 0) {
-        int found = -1;
-        for (int i = 0; i < active_music_count; i++) {
-            if (strcmp(active_musics[i].path, node->asset_path) == 0) {
-                found = i;
-                break;
-            }
-        }
-        if (found == -1 && active_music_count < 16) {
-            Music m = LoadMusicStream(node->asset_path);
-            m.looping = node->loop;
-            strncpy(active_musics[active_music_count].path, node->asset_path, 255);
-            active_musics[active_music_count].music = m;
-            active_musics[active_music_count].is_playing = 0;
-            found = active_music_count;
-            active_music_count++;
-        }
-        if (found != -1 && node->autoplay && !active_musics[found].is_playing) {
-            PlayMusicStream(active_musics[found].music);
-            active_musics[found].is_playing = 1;
-        }
-    }
-    for (int i = 0; i < node->child_count; i++) {
-        SetupAudioNodes(node->children[i]);
-    }
-}
-
-static void UpdateMusicStreams(void) {
-    for (int i = 0; i < active_music_count; i++) {
-        if (active_musics[i].is_playing) {
-            UpdateMusicStream(active_musics[i].music);
-        }
-    }
-}
-
-static void UnloadActiveMusics(void) {
-    for (int i = 0; i < active_music_count; i++) {
-        StopMusicStream(active_musics[i].music);
-        UnloadMusicStream(active_musics[i].music);
-    }
-    active_music_count = 0;
-}
+Camera2D camera = { .zoom = 1.0f };
+float shake_intensity = 0.0f;
+float shake_duration = 0.0f;
 
 // Collision Helper
 static UINode* FindCollisionNode(UINode* current, UINode* target, const char* group, Rectangle target_rec) {
@@ -291,8 +43,29 @@ static UINode* FindCollisionNode(UINode* current, UINode* target, const char* gr
         }
 
         if (match) {
-            Rectangle rec = {current->layout.x, current->layout.y, current->layout.width, current->layout.height};
-            if (CheckCollisionRecs(target_rec, rec)) {
+            int col = 0;
+            if (target->type == NODE_CIRCLE && current->type == NODE_CIRCLE) {
+                float r_t = target->radius > 0 ? target->radius : target->layout.width / 2.0f;
+                float r_c = current->radius > 0 ? current->radius : current->layout.width / 2.0f;
+                Vector2 center_t = {target->layout.x + r_t, target->layout.y + r_t};
+                Vector2 center_c = {current->layout.x + r_c, current->layout.y + r_c};
+                col = CheckCollisionCircles(center_t, r_t, center_c, r_c);
+            } else if (target->type == NODE_CIRCLE) {
+                float r = target->radius > 0 ? target->radius : target->layout.width / 2.0f;
+                Vector2 center = {target->layout.x + r, target->layout.y + r};
+                Rectangle rec = {current->layout.x, current->layout.y, current->layout.width, current->layout.height};
+                col = CheckCollisionCircleRec(center, r, rec);
+            } else if (current->type == NODE_CIRCLE) {
+                float r = current->radius > 0 ? current->radius : current->layout.width / 2.0f;
+                Vector2 center = {current->layout.x + r, current->layout.y + r};
+                Rectangle rec = {target->layout.x, target->layout.y, target->layout.width, target->layout.height};
+                col = CheckCollisionCircleRec(center, r, rec);
+            } else {
+                Rectangle rec = {current->layout.x, current->layout.y, current->layout.width, current->layout.height};
+                col = CheckCollisionRecs(target_rec, rec);
+            }
+
+            if (col) {
                 return current;
             }
         }
@@ -330,10 +103,30 @@ static PyObject* doodle_check_collision(PyObject* self, PyObject* args) {
 
     if (!node_a || !node_b || !node_a->visible || !node_b->visible) Py_RETURN_FALSE;
 
-    Rectangle rec_a = {node_a->layout.x, node_a->layout.y, node_a->layout.width, node_a->layout.height};
-    Rectangle rec_b = {node_b->layout.x, node_b->layout.y, node_b->layout.width, node_b->layout.height};
+    int col = 0;
+    if (node_a->type == NODE_CIRCLE && node_b->type == NODE_CIRCLE) {
+        float r_a = node_a->radius > 0 ? node_a->radius : node_a->layout.width / 2.0f;
+        float r_b = node_b->radius > 0 ? node_b->radius : node_b->layout.width / 2.0f;
+        Vector2 center_a = {node_a->layout.x + r_a, node_a->layout.y + r_a};
+        Vector2 center_b = {node_b->layout.x + r_b, node_b->layout.y + r_b};
+        col = CheckCollisionCircles(center_a, r_a, center_b, r_b);
+    } else if (node_a->type == NODE_CIRCLE) {
+        float r = node_a->radius > 0 ? node_a->radius : node_a->layout.width / 2.0f;
+        Vector2 center = {node_a->layout.x + r, node_a->layout.y + r};
+        Rectangle rec = {node_b->layout.x, node_b->layout.y, node_b->layout.width, node_b->layout.height};
+        col = CheckCollisionCircleRec(center, r, rec);
+    } else if (node_b->type == NODE_CIRCLE) {
+        float r = node_b->radius > 0 ? node_b->radius : node_b->layout.width / 2.0f;
+        Vector2 center = {node_b->layout.x + r, node_b->layout.y + r};
+        Rectangle rec = {node_a->layout.x, node_a->layout.y, node_a->layout.width, node_a->layout.height};
+        col = CheckCollisionCircleRec(center, r, rec);
+    } else {
+        Rectangle rec_a = {node_a->layout.x, node_a->layout.y, node_a->layout.width, node_a->layout.height};
+        Rectangle rec_b = {node_b->layout.x, node_b->layout.y, node_b->layout.width, node_b->layout.height};
+        col = CheckCollisionRecs(rec_a, rec_b);
+    }
 
-    if (CheckCollisionRecs(rec_a, rec_b)) {
+    if (col) {
         Py_RETURN_TRUE;
     }
     Py_RETURN_FALSE;
@@ -403,9 +196,11 @@ static PyObject* doodle_update_text(PyObject* self, PyObject* args) {
 
     UINode* node = FindNodeById(root, id);
     if (node) {
-        strncpy(node->text_content, text, sizeof(node->text_content) - 1);
-        node->text_content[sizeof(node->text_content) - 1] = '\0';
-        layout_dirty = 1;
+        if (strcmp(node->text_content, text) != 0) {
+            strncpy(node->text_content, text, sizeof(node->text_content) - 1);
+            node->text_content[sizeof(node->text_content) - 1] = '\0';
+            layout_dirty = 1;
+        }
         Py_RETURN_TRUE;
     }
     Py_RETURN_FALSE;
@@ -445,6 +240,19 @@ static PyObject* doodle_play_sound(PyObject* self, PyObject* args) {
     Py_RETURN_NONE;
 }
 
+static PyObject* doodle_spawn_particles(PyObject* self, PyObject* args) {
+    float x, y;
+    int count;
+    const char* color_hex;
+    float speed;
+    float lifetime;
+    if (!PyArg_ParseTuple(args, "ffisff", &x, &y, &count, &color_hex, &speed, &lifetime)) return NULL;
+    
+    SpawnParticles(x, y, count, color_hex, speed, lifetime);
+    
+    Py_RETURN_NONE;
+}
+
 static PyObject* doodle_play_synth(PyObject* self, PyObject* args) {
     float freq;
     float duration;
@@ -464,12 +272,25 @@ static PyObject* doodle_play_synth(PyObject* self, PyObject* args) {
     Py_RETURN_NONE;
 }
 
+static int IsNodeInCamera(UINode* node) {
+    if (!node) return 0;
+    UINode* p = node->parent;
+    while (p) {
+        if (p->use_camera) return 1;
+        p = p->parent;
+    }
+    return 0;
+}
+
 static PyObject* doodle_is_node_hovered(PyObject* self, PyObject* args) {
     const char* id;
     if (!PyArg_ParseTuple(args, "s", &id)) return NULL;
     UINode* node = FindNodeById(root, id);
     if (node && node->visible) {
         Vector2 mouse = GetMousePosition();
+        if (IsNodeInCamera(node)) {
+            mouse = GetScreenToWorld2D(mouse, camera);
+        }
         Rectangle rec = {node->layout.x, node->layout.y, node->layout.width, node->layout.height};
         if (CheckCollisionPointRec(mouse, rec)) {
             Py_RETURN_TRUE;
@@ -484,6 +305,9 @@ static PyObject* doodle_is_node_clicked(PyObject* self, PyObject* args) {
     UINode* node = FindNodeById(root, id);
     if (node && node->visible) {
         Vector2 mouse = GetMousePosition();
+        if (IsNodeInCamera(node)) {
+            mouse = GetScreenToWorld2D(mouse, camera);
+        }
         Rectangle rec = {node->layout.x, node->layout.y, node->layout.width, node->layout.height};
         if (CheckCollisionPointRec(mouse, rec) && IsMouseButtonPressed(MOUSE_BUTTON_LEFT)) {
             Py_RETURN_TRUE;
@@ -503,6 +327,7 @@ static PyObject* doodle_set_style(PyObject* self, PyObject* args) {
         extern CSSMap css_registry[];
         extern int css_registry_count;
         int applied = 0;
+        int affects_layout = 0;
         for (int i = 0; i < css_registry_count; i++) {
             if (strcmp(css_registry[i].property_name, property_name) == 0) {
                 css_registry[i].handler(node, property_value);
@@ -512,15 +337,32 @@ static PyObject* doodle_set_style(PyObject* self, PyObject* args) {
                 node->hover_style = node->style;
                 node->style = temp;
                 applied = 1;
+                affects_layout = css_registry[i].affects_layout;
                 break;
             }
         }
         if (applied) {
-            layout_dirty = 1;
+            if (affects_layout) {
+                layout_dirty = 1;
+            }
             Py_RETURN_TRUE;
         }
     }
     Py_RETURN_FALSE;
+}
+
+static PyObject* doodle_get_style(PyObject* self, PyObject* args) {
+    const char* id;
+    const char* property_name;
+    if (!PyArg_ParseTuple(args, "ss", &id, &property_name)) return NULL;
+
+    UINode* node = FindNodeById(root, id);
+    if (node) {
+        char val[128] = {0};
+        GetStyleProperty(node, property_name, val, sizeof(val));
+        return Py_BuildValue("s", val);
+    }
+    return Py_BuildValue("s", "");
 }
 
 static PyObject* doodle_set_camera(PyObject* self, PyObject* args) {
@@ -613,184 +455,15 @@ static PyObject* doodle_get_screen_size(PyObject* self, PyObject* args) {
     return Py_BuildValue("ii", GetScreenWidth(), GetScreenHeight());
 }
 
-// Drawing Traversal
-void DrawUINode(UINode* node) {
-    if (!node || !node->visible) return;
-
-    StyleProps* active_style = &node->style;
-    if (node->has_hover_style && node->currently_hovered) {
-        active_style = &node->hover_style;
-    }
-
-    if (node->use_camera) {
-        static RenderTexture2D arena_target;
-        static int arena_target_created = 0;
-        if (!arena_target_created) {
-            arena_target = LoadRenderTexture(800, 600);
-            arena_target_created = 1;
-        }
-
-        BeginTextureMode(arena_target);
-        ClearBackground(BLACK);
-
-        if (active_style->bg_color.a > 0) {
-            DrawRectangle(0, 0, arena_target.texture.width, arena_target.texture.height, active_style->bg_color);
-        }
-
-        Camera2D current_cam = camera;
-        if (shake_duration > 0.0f) {
-            current_cam.offset.x += GetRandomValue(-shake_intensity, shake_intensity);
-            current_cam.offset.y += GetRandomValue(-shake_intensity, shake_intensity);
-            shake_duration -= GetFrameTime();
-        }
-        BeginMode2D(current_cam);
-
-        for (int i = 0; i < node->child_count; i++) {
-            DrawUINode(node->children[i]);
-        }
-
-        UpdateAndDrawParticles();
-
-        EndMode2D();
-        EndTextureMode();
-
-        int has_shader = (strlen(active_style->shader_path) > 0);
-        if (has_shader) {
-            Shader sh = GetCachedShader(active_style->shader_path);
-            if (sh.id > 0) {
-                BeginShaderMode(sh);
-            }
-        }
-
-        Rectangle src = { node->layout.x, arena_target.texture.height - node->layout.y - node->layout.height, node->layout.width, -node->layout.height };
-        Rectangle dest = { node->layout.x, node->layout.y, node->layout.width, node->layout.height };
-        DrawTexturePro(arena_target.texture, src, dest, (Vector2){0,0}, 0.0f, WHITE);
-
-        if (has_shader) {
-            EndShaderMode();
-        }
-
-        if (active_style->border_width > 0 && active_style->border_color.a > 0) {
-            Rectangle border_rec = {node->layout.x, node->layout.y, node->layout.width, node->layout.height};
-            DrawRectangleLinesEx(border_rec, active_style->border_width, active_style->border_color);
-        }
-
-        return;
-    }
-
-    int has_shader = (strlen(active_style->shader_path) > 0);
-    if (has_shader) {
-        Shader sh = GetCachedShader(active_style->shader_path);
-        if (sh.id > 0) {
-            BeginShaderMode(sh);
-        }
-    }
-
-    if (node->type == NODE_VIEW) {
-        if (active_style->bg_color.a > 0) {
-            if (active_style->border_radius > 0) {
-                Rectangle rec = {node->layout.x, node->layout.y, node->layout.width, node->layout.height};
-                float min_dim = node->layout.width > node->layout.height ? node->layout.height : node->layout.width;
-                float roundness = min_dim > 0 ? (active_style->border_radius / min_dim) : 0.0f;
-                if (roundness > 1.0f) roundness = 1.0f;
-                DrawRectangleRounded(rec, roundness, 8, active_style->bg_color);
-            } else {
-                DrawRectangle(node->layout.x, node->layout.y, node->layout.width, node->layout.height, active_style->bg_color);
-            }
-        }
-    } else if (node->type == NODE_TEXT || node->type == NODE_BUTTON) {
-        if (node->type == NODE_BUTTON && active_style->bg_color.a > 0) {
-            if (active_style->border_radius > 0) {
-                Rectangle rec = {node->layout.x, node->layout.y, node->layout.width, node->layout.height};
-                float min_dim = node->layout.width > node->layout.height ? node->layout.height : node->layout.width;
-                float roundness = min_dim > 0 ? (active_style->border_radius / min_dim) : 0.0f;
-                if (roundness > 1.0f) roundness = 1.0f;
-                DrawRectangleRounded(rec, roundness, 8, active_style->bg_color);
-            } else {
-                DrawRectangle(node->layout.x, node->layout.y, node->layout.width, node->layout.height, active_style->bg_color);
-            }
-        }
-        
-        const char* text = node->text_content;
-        if (strlen(text) > 0) {
-            float font_size = active_style->font_size;
-            Color text_color = active_style->text_color;
-            Font font = GetFontDefault();
-            int has_custom_font = 0;
-            if (strlen(active_style->font_path) > 0) {
-                font = GetCachedFont(active_style->font_path);
-                if (font.texture.id > 0) has_custom_font = 1;
-            }
-
-            Vector2 text_size;
-            if (has_custom_font) {
-                text_size = MeasureTextEx(font, text, font_size, 1.0f);
-            } else {
-                text_size = (Vector2){ (float)MeasureText(text, (int)font_size), font_size };
-            }
-
-            float draw_x = node->layout.x;
-            float draw_y = node->layout.y;
-
-            if (strcmp(active_style->text_align, "center") == 0) {
-                draw_x = node->layout.x + (node->layout.width - text_size.x) / 2.0f;
-                draw_y = node->layout.y + (node->layout.height - text_size.y) / 2.0f;
-            } else if (node->type == NODE_BUTTON) {
-                draw_x = node->layout.x + 5;
-                draw_y = node->layout.y + (node->layout.height - text_size.y) / 2.0f;
-            }
-
-            if (has_custom_font) {
-                DrawTextEx(font, text, (Vector2){draw_x, draw_y}, font_size, 1.0f, text_color);
-            } else {
-                DrawText(text, (int)draw_x, (int)draw_y, (int)font_size, text_color);
-            }
-        }
-    } else if (node->type == NODE_IMAGE) {
-        if (strlen(node->asset_path) > 0) {
-            Texture2D tex = GetCachedTexture(node->asset_path);
-            if (tex.id > 0) {
-                Rectangle src = {0, 0, (float)tex.width, (float)tex.height};
-                Rectangle dest = {node->layout.x, node->layout.y, node->layout.width, node->layout.height};
-                DrawTexturePro(tex, src, dest, (Vector2){0,0}, 0.0f, WHITE);
-            }
-        }
-    } else if (node->type == NODE_CIRCLE) {
-        float r = node->radius;
-        if (r <= 0) r = node->layout.width / 2.0f;
-        DrawCircle(node->layout.x + r, node->layout.y + r, r, node->shape_color);
-    } else if (node->type == NODE_LINE) {
-        DrawLineEx((Vector2){node->layout.x, node->layout.y}, (Vector2){node->layout.x + node->x2, node->layout.y + node->y2}, node->thickness, node->shape_color);
-    }
-
-    // Border drawing
-    if (active_style->border_width > 0 && active_style->border_color.a > 0) {
-        Rectangle rec = {node->layout.x, node->layout.y, node->layout.width, node->layout.height};
-        if (active_style->border_radius > 0) {
-            float min_dim = node->layout.width > node->layout.height ? node->layout.height : node->layout.width;
-            float roundness = min_dim > 0 ? (active_style->border_radius / min_dim) : 0.0f;
-            if (roundness > 1.0f) roundness = 1.0f;
-            DrawRectangleRoundedLines(rec, roundness, 8, active_style->border_color);
-        } else {
-            DrawRectangleLinesEx(rec, active_style->border_width, active_style->border_color);
-        }
-    }
-
-    for (int i = 0; i < node->child_count; i++) {
-        DrawUINode(node->children[i]);
-    }
-
-
-    if (has_shader) {
-        EndShaderMode();
-    }
-}
-
 static int UpdateHoverStates(UINode* node) {
     if (!node || !node->visible) return 0;
     int changed = 0;
 
     Vector2 mouse = GetMousePosition();
+    if (IsNodeInCamera(node)) {
+        mouse = GetScreenToWorld2D(mouse, camera);
+    }
+
     Rectangle rec = {node->layout.x, node->layout.y, node->layout.width, node->layout.height};
     int is_hovered = CheckCollisionPointRec(mouse, rec);
 
@@ -984,6 +657,7 @@ static PyMethodDef DoodleMethods[] = {
     {"is_node_hovered", doodle_is_node_hovered, METH_VARARGS, "Check if node is hovered"},
     {"is_node_clicked", doodle_is_node_clicked, METH_VARARGS, "Check if node is clicked"},
     {"set_style", doodle_set_style, METH_VARARGS, "Set a style property dynamically"},
+    {"get_style", doodle_get_style, METH_VARARGS, "Get a style property dynamically"},
     {"set_camera", doodle_set_camera, METH_VARARGS, "Set 2D camera parameters"},
     {"shake_camera", doodle_shake_camera, METH_VARARGS, "Trigger camera screen shake"},
     {"spawn_particles", doodle_spawn_particles, METH_VARARGS, "Spawn particle explosion burst"},

@@ -1,0 +1,13 @@
+<view class="stage" style="width: 800px; height: 600px; background-color: #0b0f19; position: relative;">
+    <!-- 1. Z-Index Testing (Red box has higher z-index, so it must render ON TOP of the blue box despite being defined first) -->
+    <view id="box-red" class="box" style="z-index: 10; background-color: #ef4444; left: 100px; top: 100px; width: 150px; height: 150px; position: absolute; border-radius: 8px; border-width: 2px; border-color: #fca5a5;"></view>
+    <view id="box-blue" class="box" style="z-index: 5; background-color: #3b82f6; left: 180px; top: 180px; width: 150px; height: 150px; position: absolute; border-radius: 8px; border-width: 2px; border-color: #93c5fd;"></view>
+    
+    <!-- 2. Image Rotation & Tinting Testing (One normal spaceship, one rotated 45 degrees and tinted green) -->
+    <image id="ship1" src="spaceship_converted.png" style="rotation: 0; left: 450px; top: 100px; width: 100px; height: 100px; position: absolute;"></image>
+    <image id="ship2" src="spaceship_converted.png" style="rotation: 45; tint: #10b981; left: 600px; top: 100px; width: 100px; height: 100px; position: absolute;"></image>
+    
+    <!-- 3. Precise Circle Collision Testing (Orange circle, purple rectangle) -->
+    <circle id="test-circle" radius="40" color="#f59e0b" style="left: 100px; top: 400px; width: 80px; height: 80px; position: absolute;"></circle>
+    <view id="test-rect" style="background-color: #8b5cf6; left: 200px; top: 420px; width: 80px; height: 40px; position: absolute; border-radius: 4px;"></view>
+</view>

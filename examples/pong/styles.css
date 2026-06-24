@@ -1,0 +1,187 @@
+#game {
+    flex-direction: column;
+    width: 100%;
+    height: 100%;
+    background-color: #0a0a1a;
+}
+
+/* ── HUD ── */
+#hud {
+    flex-direction: row;
+    width: 100%;
+    height: 60px;
+    background-color: #0f0f2a;
+    align-items: center;
+    justify-content: space-between;
+    padding-left: 40;
+    padding-right: 40;
+    border-width: 2;
+    border-color: #1a1a3a;
+}
+
+#p1-score {
+    width: 100px;
+    height: 40px;
+    color: #38bdf8;
+    font-size: 42;
+    text-align: center;
+}
+
+#title {
+    width: grow;
+    height: 30px;
+    color: #334155;
+    font-size: 18;
+    text-align: center;
+}
+
+#p2-score {
+    width: 100px;
+    height: 40px;
+    color: #f43f5e;
+    font-size: 42;
+    text-align: center;
+}
+
+/* ── Court ── */
+#court {
+    width: 100%;
+    height: 490px;
+    position: relative;
+    background-color: #0a0a1a;
+}
+
+#center-line {
+    position: absolute;
+    left: 398px;
+    top: 0px;
+    width: 4px;
+    height: 490px;
+    background-color: #1a1a3a;
+}
+
+/* ── Paddles ── */
+#p1-paddle {
+    position: absolute;
+    left: 30px;
+    top: 195px;
+    width: 14px;
+    height: 100px;
+    background-color: #38bdf8;
+    border-radius: 7;
+    border-width: 2;
+    border-color: #7dd3fc;
+}
+
+#p2-paddle {
+    position: absolute;
+    left: 756px;
+    top: 195px;
+    width: 14px;
+    height: 100px;
+    background-color: #f43f5e;
+    border-radius: 7;
+    border-width: 2;
+    border-color: #fda4af;
+}
+
+/* ── Ball ── */
+#ball {
+    position: absolute;
+    left: 390px;
+    top: 240px;
+    width: 20px;
+    height: 20px;
+}
+
+/* ── Serve message ── */
+#serve-msg {
+    position: absolute;
+    left: 250px;
+    top: 400px;
+    width: 300px;
+    height: 40px;
+    justify-content: center;
+    align-items: center;
+}
+
+#serve-text {
+    width: 300px;
+    height: 30px;
+    color: #475569;
+    font-size: 16;
+    text-align: center;
+}
+
+/* ── Win screen ── */
+#win-screen {
+    position: absolute;
+    left: 200px;
+    top: 130px;
+    width: 400px;
+    height: 220px;
+    background-color: #1e1b4b;
+    border-radius: 16;
+    border-width: 4;
+    border-color: #6366f1;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+}
+
+#win-text {
+    width: 350px;
+    height: 50px;
+    color: #c4b5fd;
+    font-size: 32;
+    text-align: center;
+    margin-bottom: 25;
+}
+
+#rematch-btn {
+    width: 200px;
+    height: 45px;
+    background-color: #0f172a;
+    color: #6366f1;
+    font-size: 18;
+    text-align: center;
+    border-width: 2;
+    border-color: #6366f1;
+    border-radius: 8;
+}
+
+#rematch-btn:hover {
+    background-color: #6366f1;
+    color: #ffffff;
+    border-color: #a5b4fc;
+}
+
+/* ── Controls bar ── */
+#controls-bar {
+    flex-direction: row;
+    width: 100%;
+    height: 50px;
+    background-color: #0f0f2a;
+    align-items: center;
+    justify-content: space-between;
+    padding-left: 40;
+    padding-right: 40;
+    border-width: 1;
+    border-color: #1a1a3a;
+}
+
+#p1-keys {
+    width: 200px;
+    height: 20px;
+    color: #38bdf8;
+    font-size: 14;
+    text-align: left;
+}
+
+#p2-keys {
+    width: 200px;
+    height: 20px;
+    color: #f43f5e;
+    font-size: 14;
+    text-align: right;
+}

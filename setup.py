@@ -5,7 +5,15 @@ from setuptools import setup, Extension, find_packages
 from setuptools.command.build_ext import build_ext
 
 FORCE_MINGW = os.environ.get('DOODLE_FORCE_MINGW') == '1'
-if sys.platform == 'win32' and not FORCE_MINGW:
+IS_CI = bool(
+    os.environ.get('CIBUILDWHEEL') or 
+    os.environ.get('GITHUB_ACTIONS') or 
+    os.environ.get('CI') or 
+    'cibw-run' in sys.executable or
+    'runneradmin' in sys.executable
+)
+
+if sys.platform == 'win32' and not FORCE_MINGW and not IS_CI:
     if not shutil.which('cl.exe'):
         mingw_bin = r'C:\msys64\ucrt64\bin'
         if os.path.exists(mingw_bin):

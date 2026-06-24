@@ -1,0 +1,29 @@
+<view id="game">
+    <view id="hud">
+        <text id="p1-score">{{ p1_score }}</text>
+        <text id="title">PONG</text>
+        <text id="p2-score">{{ p2_score }}</text>
+    </view>
+
+    <view id="court">
+        <view id="center-line"></view>
+
+        <view id="p1-paddle"></view>
+        <view id="p2-paddle"></view>
+        <circle id="ball" radius="10" color="#ffffff"></circle>
+
+        <view id="serve-msg">
+            <text id="serve-text">PRESS SPACE TO SERVE</text>
+        </view>
+
+        <view id="win-screen" style="display: none;">
+            <text id="win-text">PLAYER 1 WINS!</text>
+            <button id="rematch-btn" onclick="rematch">REMATCH</button>
+        </view>
+    </view>
+
+    <view id="controls-bar">
+        <text id="p1-keys">P1: W / S</text>
+        <text id="p2-keys">P2: UP / DOWN</text>
+    </view>
+</view>

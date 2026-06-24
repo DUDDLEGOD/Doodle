@@ -33,8 +33,7 @@ static void PopulateHashHelper(UINode* n) {
         for (int i = 0; i < 2048; i++) {
             unsigned int idx = (h + i) % 2048;
             if (node_hash_table[idx].node == NULL) {
-                strncpy(node_hash_table[idx].id, n->id, sizeof(node_hash_table[idx].id) - 1);
-                node_hash_table[idx].id[sizeof(node_hash_table[idx].id) - 1] = '\0';
+                snprintf(node_hash_table[idx].id, sizeof(node_hash_table[idx].id), "%s", n->id);
                 node_hash_table[idx].node = n;
                 break;
             }

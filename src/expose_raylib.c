@@ -17,6 +17,7 @@
 #include <time.h>
 #include <string.h>
 #include <math.h>
+#include <stdio.h>
 
 UINode* root = NULL;
 int layout_dirty = 1;
@@ -41,8 +42,7 @@ static UINode* FindCollisionNode(UINode* current, UINode* target, const char* gr
         int len = strlen(group);
         if (len > 1 && group[len-1] == 's') {
             char singular[64];
-            strncpy(singular, group, len - 1);
-            singular[len - 1] = '\0';
+            snprintf(singular, sizeof(singular), "%.*s", len - 1, group);
             if (HasClass(current->class_name, singular)) match = 1;
         }
 
@@ -447,12 +447,12 @@ static void ConsolePrint(const char* text) {
         if (*p == '\n' || li >= CONSOLE_LINE_LENGTH - 1) {
             line[li] = '\0';
             if (console_lines_count < CONSOLE_MAX_LINES) {
-                strncpy(console_lines[console_lines_count++], line, CONSOLE_LINE_LENGTH - 1);
+                snprintf(console_lines[console_lines_count++], CONSOLE_LINE_LENGTH, "%s", line);
             } else {
                 for (int i = 1; i < CONSOLE_MAX_LINES; i++) {
                     strcpy(console_lines[i-1], console_lines[i]);
                 }
-                strncpy(console_lines[CONSOLE_MAX_LINES - 1], line, CONSOLE_LINE_LENGTH - 1);
+                snprintf(console_lines[CONSOLE_MAX_LINES - 1], CONSOLE_LINE_LENGTH, "%s", line);
             }
             li = 0;
             if (*p == '\n') p++;
@@ -463,12 +463,12 @@ static void ConsolePrint(const char* text) {
     if (li > 0) {
         line[li] = '\0';
         if (console_lines_count < CONSOLE_MAX_LINES) {
-            strncpy(console_lines[console_lines_count++], line, CONSOLE_LINE_LENGTH - 1);
+            snprintf(console_lines[console_lines_count++], CONSOLE_LINE_LENGTH, "%s", line);
         } else {
             for (int i = 1; i < CONSOLE_MAX_LINES; i++) {
                 strcpy(console_lines[i-1], console_lines[i]);
             }
-            strncpy(console_lines[CONSOLE_MAX_LINES - 1], line, CONSOLE_LINE_LENGTH - 1);
+            snprintf(console_lines[CONSOLE_MAX_LINES - 1], CONSOLE_LINE_LENGTH, "%s", line);
         }
     }
 }
@@ -801,8 +801,7 @@ static int saved_positions_count = 0;
 static void SavePositions(UINode* n) {
     if (!n) return;
     if (n->position_set && saved_positions_count < 512) {
-        strncpy(saved_positions[saved_positions_count].id, n->id, 63);
-        saved_positions[saved_positions_count].id[63] = '\0';
+        snprintf(saved_positions[saved_positions_count].id, 64, "%s", n->id);
         saved_positions[saved_positions_count].x = n->layout.x;
         saved_positions[saved_positions_count].y = n->layout.y;
         saved_positions_count++;

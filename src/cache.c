@@ -1,6 +1,7 @@
 #include "cache.h"
 #include "dom_utils.h"
 #include <string.h>
+#include <stdio.h>
 
 // Caching Systems
 typedef struct {
@@ -153,8 +154,7 @@ void SetupAudioNodes(UINode* node) {
         if (found == -1 && active_music_count < 16) {
             Music m = LoadMusicStream(node->asset_path);
             m.looping = node->loop;
-            strncpy(active_musics[active_music_count].path, node->asset_path, 255);
-            active_musics[active_music_count].path[255] = '\0';
+            snprintf(active_musics[active_music_count].path, 256, "%s", node->asset_path);
             active_musics[active_music_count].music = m;
             active_musics[active_music_count].is_playing = 0;
             found = active_music_count;

@@ -63,6 +63,7 @@ all_btns = num_btns + op_btns + acc_btns
 # Store original background colors to revert to after animation
 btn_base_colors = {}
 anim_timers = {}
+is_first_frame = True
 
 def apply_theme(idx):
     t = THEMES[idx]
@@ -220,6 +221,11 @@ for btn_id, handler in handlers.items():
     doodle.addEventListener(btn_id, "click", handler)
 
 def tick():
+    global is_first_frame
+    if is_first_frame:
+        apply_theme(current_theme_idx)
+        is_first_frame = False
+
     # Keyboard Handling (Numpad + Numbers + Operators)
     # Check numbers
     for i in range(10):
@@ -263,7 +269,6 @@ def tick():
 doodle.registerTickCallback(tick)
 
 def main():
-    apply_theme(0) # Init default theme
     doodle.run(
         layout="layout.html",
         style="styles.css",

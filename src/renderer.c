@@ -6,6 +6,9 @@
 
 static Shader current_active_shader = {0};
 
+#define MAX_SORT_NODES 1024
+static UINode* sorted[MAX_SORT_NODES];
+
 void SetActiveShader(Shader sh) {
     if (sh.id != current_active_shader.id) {
         if (current_active_shader.id > 0) {
@@ -82,9 +85,24 @@ void DrawUINode(UINode* node) {
         BeginMode2D(current_cam);
 
         if (node->child_count > 0) {
-            UINode* sorted[node->child_count];
-            GetSortedChildren(node, sorted);
-            for (int i = 0; i < node->child_count; i++) {
+            int N = node->child_count;
+            if (N > MAX_SORT_NODES) N = MAX_SORT_NODES;
+
+            for (int i = 0; i < N; i++) {
+                sorted[i] = node->children[i];
+            }
+            for (int i = 1; i < N; i++) {
+                UINode* key = sorted[i];
+                int key_z = GetActiveZIndex(key);
+                int j = i - 1;
+                while (j >= 0 && GetActiveZIndex(sorted[j]) > key_z) {
+                    sorted[j + 1] = sorted[j];
+                    j = j - 1;
+                }
+                sorted[j + 1] = key;
+            }
+
+            for (int i = 0; i < N; i++) {
                 DrawUINode(sorted[i]);
             }
         }
@@ -152,7 +170,7 @@ void DrawUINode(UINode* node) {
                 DrawRectangle(node->layout.x, node->layout.y, node->layout.width, node->layout.height, active_style->bg_color); g_draw_calls++;
             }
         }
-        
+
         const char* text = node->text_content;
         if (strlen(text) > 0) {
             float font_size = active_style->font_size;
@@ -226,11 +244,26 @@ void DrawUINode(UINode* node) {
     }
 
     if (node->child_count > 0) {
-        UINode* sorted[node->child_count];
-        GetSortedChildren(node, sorted);
-        for (int i = 0; i < node->child_count; i++) {
-            DrawUINode(sorted[i]);
-        }
+        int N = node->child_count;
+            if (N > MAX_SORT_NODES) N = MAX_SORT_NODES;
+
+            for (int i = 0; i < N; i++) {
+                sorted[i] = node->children[i];
+            }
+            for (int i = 1; i < N; i++) {
+                UINode* key = sorted[i];
+                int key_z = GetActiveZIndex(key);
+                int j = i - 1;
+                while (j >= 0 && GetActiveZIndex(sorted[j]) > key_z) {
+                    sorted[j + 1] = sorted[j];
+                    j = j - 1;
+                }
+                sorted[j + 1] = key;
+            }
+
+            for (int i = 0; i < N; i++) {
+                DrawUINode(sorted[i]);
+            }
     }
 
     if (has_shader) {

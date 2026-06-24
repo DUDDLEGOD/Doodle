@@ -200,8 +200,6 @@ class Node:
         _doodle.hideNode(self.id)
 
 def getNode(node_id: str) -> Node:
-    # Verifies node existence in the DOM tree, raises KeyError if missing
-    _doodle.getLineNumber(node_id)
     return Node(node_id)
 
 get_node = getNode  # Backward compatibility alias

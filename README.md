@@ -1,168 +1,287 @@
 # Doodle Engine
+
 ### Hardware-Accelerated Hybrid C-Python UI & 2D Game Engine
 
-Doodle is a high-performance, lightweight UI and 2D game engine combining a **native C rendering core (powered by Raylib)** with a **highly reactive Python scripting layer**.
-
-By bypassing heavy browser runtimes (like Chromium/Electron), Doodle parses dynamic HTML-like templates and CSS stylesheets in a single pass directly to GPU-accelerated graphics, procedural audio synths, and collision meshes.
-
----
-
-## Repository Organization
-
-```text
-Doodle/
-├── docs/                   # Full reference specifications & requirements
-│   ├── cheatsheet.md       # API & layout syntax quick reference
-│   ├── requirements.md     # Engine specifications and architecture blueprint
-│   └── unused_reference.md  # Unused HTML/CSS/C engine features reference
-├── doodle/                 # Python package wrapper
-│   ├── __init__.py         # Tween animations, reactive state binding, event emitter
-│   └── cli.py              # PyInstaller packager cli
-├── examples/               # Game demonstrations
-│   └── breakout/           # Breakout game demo
-│       ├── layout.html     # Game view DOM nodes & inline handlers
-│       ├── styles.css      # Retro arcade UI styles, flexbox, and crt shaders
-│       ├── shaders/        # Custom GLSL Fragment shaders
-│       └── main.py         # Collision, input, and game state script
-├── src/                    # C-Extension Core (complies to _doodle.pyd)
-│   ├── setup.py            # Setuptools compilation script
-│   ├── expose_raylib.c     # Python-to-C bindings, Raylib window, and particle pool
-│   ├── mparser.h / .c      # n-ary DOM parser, CSS registry handler, and layout box solver
-│   ├── dutils.h / .c       # Custom color parser, fast unit converter, and math helpers
-│   └── daudio.h / .c       # Polyphonic synth, multi-voice ADSR envelope generator
-├── third_party/            # Static Raylib binaries & dependencies
-└── README.md               # You are here!
-```
+<p align="center">
+  <strong>Build games, creative tools, and interactive apps using HTML-like layouts, CSS styling, and Python scripting — all rendered natively on the GPU.</strong>
+</p>
 
 ---
 
-## Getting Started & Compilation
+Doodle is a high-performance, lightweight engine that combines a **native C rendering core (powered by Raylib)** with a **highly reactive Python scripting layer**. Instead of embedding a browser, Doodle parses HTML-like templates and CSS stylesheets in a single pass, mapping them directly to GPU-accelerated graphics, procedural audio, and real-time collision systems.
 
-### 1. Requirements
-* **OS**: Windows (x64) / linux
-* **Python**: Python 3.11+ (with virtual environment capability)
-* **C Toolchain**: MSYS2/MinGW-w64 (`C:\msys64\ucrt64\bin` for `gcc` and compilation libraries) / linux cc compiler
+## ✨ Key Features
 
-### 2. Quick Setup & Build
-From the repository root directory, run the setuptools compilation with your virtual environment's python. Specify the compiler:
+| Category | Features |
+|----------|----------|
+| **Rendering** | GPU-accelerated 2D drawing, rounded rectangles, circles, lines, images, custom GLSL shaders, particle system |
+| **Layout** | Flexbox engine (row/column, justify-content, align-items), absolute positioning, percentage/pixel/grow/fit sizing |
+| **Styling** | Full CSS property system, hover states, dynamic runtime style changes, custom fonts, border-radius, opacity |
+| **Input** | Keyboard polling (down/pressed), mouse position/buttons/wheel/cursor, node click & hover detection |
+| **Audio** | Polyphonic procedural synthesizer (5 waveforms, ADSR envelopes), cached sound file playback, background music streams |
+| **Collision** | Rect-Rect, Circle-Circle, Circle-Rect detection, class-group collision queries, batch collision processing |
+| **Animation** | Tween engine with easing curves (linear, quad_in, quad_out) |
+| **Scripting** | Full Python OOP node wrappers, property accessors (`node.x += 10`), reactive `{{ template }}` data binding |
+| **Dev Tools** | Built-in FPS/draw-call profiler, runtime Python console (`~` key), hot-reload for layout & styles |
+| **DX** | camelCase + snake_case dual API, full `.pyi` type stubs for IDE autocomplete, descriptive error messages with layout line numbers |
+
+---
+
+## 🚀 Getting Started
+
+### Requirements
+- **OS**: Windows (x64) or Linux
+- **Python**: 3.11+
+- **C Toolchain**: MSYS2/MinGW-w64 (Windows) or GCC (Linux)
+
+### Quick Setup
 
 ```bash
-# Add GCC to PATH (if not global)
-$env:PATH = "C:\msys64\ucrt64\bin;" + $env:PATH
+# Clone and enter the repository
+git clone https://github.com/user/Doodle.git
+cd Doodle
+
+# Create virtual environment
+python -m venv .venv
 
 # Compile the native C extension
-cd src
-..\.venv\Scripts\python.exe setup.py build_ext --inplace -c mingw32
+# Windows (PowerShell):
+.venv\Scripts\python.exe setup.py build_ext --inplace
 
-# Copy the compiled pyd module to the doodle library
-cd ..
-Copy-Item -Path "src\_doodle.cp311-win_amd64.pyd" -Destination "doodle\_doodle.pyd" -Force
+# Linux:
+.venv/bin/python setup.py build_ext --inplace
 ```
 
-### 3. Run the Breakout Demo
-Launch the breakout game:
+### Run the Breakout Demo
+
 ```bash
-cd examples/breakout
-..\..\.venv\Scripts\python.exe main.py
+# Windows:
+.venv\Scripts\python.exe examples\breakout\main.py
+
+# Linux:
+.venv/bin/python examples/breakout/main.py
 ```
 
 ---
 
-## XML Markup (`layout.html`) & CSS (`styles.css`)
+## 📖 How It Works
 
-Doodle supports layout-driven layouts with traditional tag structures and inline event bindings.
+Doodle apps are built with three files:
 
-### Core Elements
-* `<view>`: Structural container. Standard flex container or a 2D camera boundary using `<view camera="true">`.
-* `<text>`: Text layout with reactive state-bound variables like `SCORE: {{ score }}`.
-* `<image>`: Renders cached bitmaps using `src="..."`.
-* `<button>`: Clickable target with mouse state callbacks.
-* `<circle>`: Renders shapes using `radius` and `color` parameters.
-* `<line>`: Renders vectors using `x2`, `y2`, `thickness`, and `color`.
+### 1. `layout.html` — Define your UI structure
+```html
+<view id="app">
+    <view id="hud">
+        <text id="score">SCORE: {{ score }}</text>
+        <text id="lives">LIVES: {{ lives }}</text>
+    </view>
+    <view id="game-area" camera="true">
+        <view id="player"></view>
+        <view id="ball"></view>
+        <circle id="coin" radius="12" color="#facc15"></circle>
+    </view>
+    <view id="game-over" style="display: none;">
+        <text id="msg">GAME OVER</text>
+        <button id="restart-btn" onclick="restart">RESTART</button>
+    </view>
+</view>
+```
 
-### Event Hooks
-Directly attach Python functions inline:
-* `onclick="python_function_name"`
-* `onhover="python_function_name"`
+### 2. `styles.css` — Style everything with familiar CSS
+```css
+#app {
+    flex-direction: column;
+    width: 100%;
+    height: 100%;
+    background-color: #0a0a0a;
+}
 
-### Layout Styles
-* **Sizing Rules**: `width` / `height` support pixels (`100px`), percentages (`50%`), growth parameters (`grow`), and content sizing (`fit`).
-* **Flexbox Attributes**: `display: flex`, `flex-direction` (`row` | `column`), `justify-content` (`center` | `space-between` | `space-around`), `align-items`.
-* **Cosmetics**: `background-color`, `border-radius`, `border-color`, `border-width`, `opacity`, `font-family`, `font-size`.
-* **Juice Shaders**: Add custom GLSL fragment shaders directly to views using `shader-path: "shaders/crt.fs"`.
+#hud {
+    flex-direction: row;
+    justify-content: space-between;
+    padding: 12 24;
+    background-color: #111;
+    font-size: 18;
+    color: #00ffcc;
+}
 
----
+#player {
+    width: 80px;
+    height: 16px;
+    background-color: #00ffcc;
+    border-radius: 4;
+}
 
-## Python OOP APIs
+#ball {
+    width: 16px;
+    height: 16px;
+    background-color: #ffffff;
+    border-radius: 8;
+}
+```
 
-### Initialization
+### 3. `main.py` — Script your logic in Python
 ```python
 import doodle
 
-# Game state passed for template rendering
 state = {"score": 0, "lives": 3}
 
-doodle.run(
-    layout="layout.html",
-    style="styles.css",
-    width=800,
-    height=600,
-    title="Game Window",
-    state=state
-)
-```
+player = doodle.getNode("player")
+ball = doodle.getNode("ball")
 
-### Node Manipulation
-```python
-# Fetch reference
-paddle = doodle.get_node("paddle")
+ball_dx, ball_dy = 5.0, -5.0
 
-# Read/Write positions
-paddle.position = (350, 500)
-paddle.x += 10.0
+def tick():
+    global ball_dx, ball_dy
 
-# Easing animations
-doodle.animate("paddle", target_x=350, target_y=500, duration=0.4, ease="quad_out")
-```
+    # Move player with keyboard
+    if doodle.isKeyDown(263):  # Left arrow
+        player.x -= 8
+    if doodle.isKeyDown(262):  # Right arrow
+        player.x += 8
 
-### Input Polling
-```python
-# Keys
-doodle.is_key_down(263)      # Left arrow key code
-doodle.is_key_pressed(82)    # R key code
+    # Move ball
+    ball.x += ball_dx
+    ball.y += ball_dy
 
-# Mouse
-mx = doodle.get_mouse_x()
-doodle.set_mouse_cursor(4)   # Changes mouse pointer style
+    # Bounce off paddle
+    if doodle.checkCollision("ball", "player"):
+        ball_dy = -abs(ball_dy)
+        doodle.playSynth(440.0, 0.1, doodle.WAVE_SQUARE)
+        doodle.shakeCamera(4.0, 0.15)
+        doodle.spawnParticles(ball.x, ball.y, 15, "#00ffcc", 3.0, 0.4)
+
+doodle.registerTickCallback(tick)
+doodle.run(layout="layout.html", style="styles.css", width=800, height=600, state=state)
 ```
 
 ---
 
-## 🔊 Polyphonic Procedural Sound Synthesizer
+## 🎮 Python API Overview
 
-Doodle includes an integrated multi-voice synthesizer utilizing **ADSR Envelopes** to play retro sound waves without lagging the update tick loop.
-
+### Engine Lifecycle
 ```python
-# Play procedural tone
-doodle.play_synth(
-    freq=440.0,
-    duration=0.15,
-    wave_type=doodle.WAVE_TRIANGLE,
-    attack=0.01,
-    decay=0.05,
-    sustain=0.3,
-    release=0.05
-)
+doodle.run(layout, style, width, height, title, state)  # Start the engine
+doodle.registerTickCallback(fn)                          # Per-frame update function
 ```
 
-**Wave Types**: `WAVE_SINE` (`0`), `WAVE_SQUARE` (`1`), `WAVE_TRIANGLE` (`2`), `WAVE_SAWTOOTH` (`3`), `WAVE_NOISE` (`4`)
+### Node Manipulation (OOP)
+```python
+node = doodle.getNode("player")    # Get a node wrapper
+
+node.x += 10                       # Direct position access
+node.y = 300
+node.position = (100, 200)         # Tuple assignment
+node.width = 80                    # Resize via CSS
+node.text = "Hello!"               # Update inner text
+node.visible = False               # Hide from rendering
+node.show() / node.hide()          # Visibility methods
+node.style.background_color = "red"  # Dynamic CSS properties
+```
+
+### Input
+```python
+doodle.isKeyDown(key_code)          # Held key check
+doodle.isKeyPressed(key_code)       # Single-frame press
+doodle.getMousePosition()           # (x, y) tuple
+doodle.isMouseButtonPressed(0)      # Left click
+doodle.isNodeClicked("btn")         # Click detection on DOM node
+doodle.isNodeHovered("btn")         # Hover detection on DOM node
+```
+
+### Collision Detection
+```python
+doodle.checkCollision("a", "b")              # Rect/Circle aware
+doodle.getFirstCollision("ball", "bricks")   # Class group query
+doodle.batchProcess(positions={...}, collisions=[...])  # Batched C call
+```
+
+### Audio
+```python
+doodle.playSound("sfx/hit.wav")                              # Cached WAV playback
+doodle.playSynth(freq, duration, waveform, atk, dec, sus, rel)  # Procedural synth
+# Waveforms: WAVE_SINE, WAVE_SQUARE, WAVE_TRIANGLE, WAVE_SAWTOOTH, WAVE_NOISE
+```
+
+### Effects
+```python
+doodle.spawnParticles(x, y, count, color_hex, speed, lifetime)  # Particle burst
+doodle.shakeCamera(intensity, duration)                         # Screen shake
+doodle.animate("node", target_x=100, duration=0.5, ease="quad_out")  # Tweens
+```
+
+### Camera
+```python
+doodle.setCamera(target_x, target_y, offset_x, offset_y, zoom, rotation)
+```
 
 ---
 
-## ⚡ Performance Optimizations
+## 🔧 Developer Tools
 
-Doodle is engineered for maximum performance, featuring multiple custom optimizations:
-1. **Single-Item DOM Lookup Cache**: Node lookup (`FindNodeById`) caches the pointer of the last requested node. Repetitive state checks (like checking click and hover events in the same frame) resolve in $O(1)$ without scanning the DOM tree.
-2. **Precompiled Format Templating**: Template variables `{{ score }}` are compiled once into native Python `{score}` string format structures, converting reactive updates from regex replacements to C-speed string builders.
-3. **Loop Division Elimination**: Particle shaders and polyphonic audio generators use cached precalculated inverse values (`inv_max_lifetime` and `phase_increment`) to replace expensive division operations with single-clock multiplication instructions.
-4. **Square Wave Optimization**: Square waves skip standard trignometric `sinf` calculations, computing high-low status directly from phase boundaries.
+Press **`~`** (tilde) at runtime to open the built-in developer console. Execute Python commands live:
+
+```
+>>> getNode("ball").x += 100
+>>> spawnParticles(400, 300, 50, "#ff0", 5.0, 1.0)
+```
+
+The profiler overlay shows FPS, draw calls, particle count, and CPU time per frame.
+
+---
+
+## 📁 Repository Structure
+
+```text
+Doodle/
+├── doodle/                    # Python package
+│   ├── __init__.py            # OOP wrappers, tweens, events, templates
+│   ├── __init__.pyi           # Full type stubs for IDE autocomplete
+│   └── cli.py                 # PyInstaller packaging CLI
+├── src/                       # C extension core (compiles to _doodle.pyd)
+│   ├── expose_raylib.c        # CPython bindings, main loop, particles
+│   ├── mparser.h / .c         # DOM tree, node pool, hash-table lookup
+│   ├── html_parser.h / .c     # Single-pass HTML parser with line tracking
+│   ├── css_parser.h / .c      # CSS parser with functional registry pattern
+│   ├── layout.h / .c          # Flexbox layout solver
+│   ├── renderer.h / .c        # GPU draw traversal, shaders, z-sorting
+│   ├── daudio.h / .c          # Polyphonic synth, ADSR envelope generator
+│   ├── particles.h / .c       # Object-pooled particle system
+│   ├── profiler.h / .c        # FPS counter, draw call tracker, dev console
+│   ├── cache.h / .c           # Texture, sound, shader, font caching
+│   ├── color.h / .c           # Hex/named color parser
+│   ├── unit.h / .c            # CSS unit parser (px, %, grow, fit)
+│   ├── string_utils.h / .c    # String trimming and helpers
+│   └── dom_utils.h / .c       # Tree traversal utilities
+├── examples/                  # Demo applications
+│   └── breakout/              # Breakout game with CRT shader
+├── docs/                      # Documentation
+│   ├── getting-started.md     # Installation & first app tutorial
+│   ├── api-reference.md       # Complete API reference
+│   ├── layout-and-styling.md  # HTML tags & CSS properties guide
+│   ├── architecture.md        # Engine internals & C architecture
+│   └── cheatsheet.md          # Quick reference card
+├── third_party/               # Static Raylib binaries
+├── setup.py                   # Build script
+├── pyproject.toml             # Package metadata
+└── README.md                  # You are here!
+```
+
+---
+
+## ⚡ Performance
+
+Doodle is engineered for speed with several custom optimizations:
+
+- **Hash-table node lookup** — O(1) average case for `FindNodeById` instead of tree traversal
+- **Object-pooled particles** — Pre-allocated particle array, no runtime allocation
+- **Batched C calls** — `batchProcess()` combines position/text/visibility/collision updates into one Python→C roundtrip
+- **Fast math** — SSE3 intrinsics, cached inverse values for division elimination, direct phase-boundary square waves
+- **Precompiled templates** — `{{ score }}` compiles once to Python `{score}` format strings
+- **Lazy layout** — Layout recomputation only when `layout_dirty` flag is set
+
+---
+
+## 📄 License
+
+MIT License. See [LICENSE](LICENSE) for details.

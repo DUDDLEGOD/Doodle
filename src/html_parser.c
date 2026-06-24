@@ -7,8 +7,13 @@
 #include <stdlib.h>
 #include <stdio.h>
 
-extern CSSMap css_registry[];
-extern int css_registry_count;
+static int GetLineNumber(const char* buf, const char* p) {
+    int line = 1;
+    for (const char* c = buf; c < p; c++) {
+        if (*c == '\n') line++;
+    }
+    return line;
+}
 
 UINode* ParseHTML(const char* filepath) {
     FILE* f = fopen(filepath, "r");
@@ -77,6 +82,7 @@ UINode* ParseHTML(const char* filepath) {
 
             UINode* node = CreateNode(type);
             node->visible = 1;
+            node->line_number = GetLineNumber(buf, p);
 
             int self_closing = 0;
             while (*p) {
@@ -162,6 +168,8 @@ UINode* ParseHTML(const char* filepath) {
                         char* trimmed_name = TrimWhitespace(p_name);
                         char* trimmed_val = TrimWhitespace(p_val);
                         if (strlen(trimmed_name) > 0 && strlen(trimmed_val) > 0) {
+                            extern CSSMap css_registry[];
+                            extern int css_registry_count;
                             for (int k = 0; k < css_registry_count; k++) {
                                 if (strcmp(css_registry[k].property_name, trimmed_name) == 0) {
                                     css_registry[k].handler(node, trimmed_val);

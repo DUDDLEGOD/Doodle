@@ -82,6 +82,46 @@ static UINode* FindCollisionNode(UINode* current, UINode* target, const char* gr
     return NULL;
 }
 
+static UINode* GetNodeOrRaise(const char* id) {
+    UINode* node = FindNodeById(root, id);
+    if (!node) {
+        PyErr_Format(PyExc_KeyError, "Node with ID '%s' not found in the DOM tree.", id);
+    }
+    return node;
+}
+
+static PyObject* doodle_get_line_number(PyObject* self, PyObject* args) {
+    const char* id;
+    if (!PyArg_ParseTuple(args, "s", &id)) return NULL;
+    UINode* node = GetNodeOrRaise(id);
+    if (!node) return NULL;
+    return PyLong_FromLong(node->line_number);
+}
+
+static PyObject* doodle_get_layout_size(PyObject* self, PyObject* args) {
+    const char* id;
+    if (!PyArg_ParseTuple(args, "s", &id)) return NULL;
+    UINode* node = GetNodeOrRaise(id);
+    if (!node) return NULL;
+    return Py_BuildValue("ff", node->layout.width, node->layout.height);
+}
+
+static PyObject* doodle_is_visible(PyObject* self, PyObject* args) {
+    const char* id;
+    if (!PyArg_ParseTuple(args, "s", &id)) return NULL;
+    UINode* node = GetNodeOrRaise(id);
+    if (!node) return NULL;
+    return PyBool_FromLong(node->visible);
+}
+
+static PyObject* doodle_get_text(PyObject* self, PyObject* args) {
+    const char* id;
+    if (!PyArg_ParseTuple(args, "s", &id)) return NULL;
+    UINode* node = GetNodeOrRaise(id);
+    if (!node) return NULL;
+    return PyUnicode_FromString(node->text_content);
+}
+
 // CPython Bindings
 static PyObject* doodle_register_tick_callback(PyObject* self, PyObject* args) {
     PyObject* temp;
@@ -102,10 +142,12 @@ static PyObject* doodle_check_collision(PyObject* self, PyObject* args) {
     const char* id_b;
     if (!PyArg_ParseTuple(args, "ss", &id_a, &id_b)) return NULL;
 
-    UINode* node_a = FindNodeById(root, id_a);
-    UINode* node_b = FindNodeById(root, id_b);
+    UINode* node_a = GetNodeOrRaise(id_a);
+    if (!node_a) return NULL;
+    UINode* node_b = GetNodeOrRaise(id_b);
+    if (!node_b) return NULL;
 
-    if (!node_a || !node_b || !node_a->visible || !node_b->visible) Py_RETURN_FALSE;
+    if (!node_a->visible || !node_b->visible) Py_RETURN_FALSE;
 
     int col = 0;
     if (node_a->type == NODE_CIRCLE && node_b->type == NODE_CIRCLE) {
@@ -142,8 +184,9 @@ static PyObject* doodle_get_first_collision(PyObject* self, PyObject* args, PyOb
     static char* kwlist[] = {"id", "group", NULL};
     if (!PyArg_ParseTupleAndKeywords(args, kwargs, "ss", kwlist, &id, &group)) return NULL;
 
-    UINode* node = FindNodeById(root, id);
-    if (!node || !node->visible) Py_RETURN_NONE;
+    UINode* node = GetNodeOrRaise(id);
+    if (!node) return NULL;
+    if (!node->visible) Py_RETURN_NONE;
 
     Rectangle rec = {node->layout.x, node->layout.y, node->layout.width, node->layout.height};
     UINode* collision = FindCollisionNode(root, node, group, rec);
@@ -158,39 +201,34 @@ static PyObject* doodle_set_position(PyObject* self, PyObject* args) {
     float x, y;
     if (!PyArg_ParseTuple(args, "sff", &id, &x, &y)) return NULL;
 
-    UINode* node = FindNodeById(root, id);
-    if (node) {
-        node->layout.x = x;
-        node->layout.y = y;
-        node->position_set = 1;
-        layout_dirty = 1;
-        Py_RETURN_TRUE;
-    }
-    Py_RETURN_FALSE;
+    UINode* node = GetNodeOrRaise(id);
+    if (!node) return NULL;
+
+    node->layout.x = x;
+    node->layout.y = y;
+    node->position_set = 1;
+    layout_dirty = 1;
+    Py_RETURN_TRUE;
 }
 
 static PyObject* doodle_get_position(PyObject* self, PyObject* args) {
     const char* id;
     if (!PyArg_ParseTuple(args, "s", &id)) return NULL;
 
-    UINode* node = FindNodeById(root, id);
-    if (node) {
-        return Py_BuildValue("ff", node->layout.x, node->layout.y);
-    }
-    return Py_BuildValue("ff", 0.0f, 0.0f);
+    UINode* node = GetNodeOrRaise(id);
+    if (!node) return NULL;
+    return Py_BuildValue("ff", node->layout.x, node->layout.y);
 }
 
 static PyObject* doodle_remove_node(PyObject* self, PyObject* args) {
     const char* id;
     if (!PyArg_ParseTuple(args, "s", &id)) return NULL;
 
-    UINode* node = FindNodeById(root, id);
-    if (node) {
-        RemoveNode(root, node);
-        layout_dirty = 1;
-        Py_RETURN_TRUE;
-    }
-    Py_RETURN_FALSE;
+    UINode* node = GetNodeOrRaise(id);
+    if (!node) return NULL;
+    RemoveNode(root, node);
+    layout_dirty = 1;
+    Py_RETURN_TRUE;
 }
 
 static PyObject* doodle_update_text(PyObject* self, PyObject* args) {
@@ -198,42 +236,36 @@ static PyObject* doodle_update_text(PyObject* self, PyObject* args) {
     const char* text;
     if (!PyArg_ParseTuple(args, "ss", &id, &text)) return NULL;
 
-    UINode* node = FindNodeById(root, id);
-    if (node) {
-        if (strcmp(node->text_content, text) != 0) {
-            strncpy(node->text_content, text, sizeof(node->text_content) - 1);
-            node->text_content[sizeof(node->text_content) - 1] = '\0';
-            layout_dirty = 1;
-        }
-        Py_RETURN_TRUE;
+    UINode* node = GetNodeOrRaise(id);
+    if (!node) return NULL;
+    if (strcmp(node->text_content, text) != 0) {
+        strncpy(node->text_content, text, sizeof(node->text_content) - 1);
+        node->text_content[sizeof(node->text_content) - 1] = '\0';
+        layout_dirty = 1;
     }
-    Py_RETURN_FALSE;
+    Py_RETURN_TRUE;
 }
 
 static PyObject* doodle_show_node(PyObject* self, PyObject* args) {
     const char* id;
     if (!PyArg_ParseTuple(args, "s", &id)) return NULL;
 
-    UINode* node = FindNodeById(root, id);
-    if (node) {
-        node->visible = 1;
-        layout_dirty = 1;
-        Py_RETURN_TRUE;
-    }
-    Py_RETURN_FALSE;
+    UINode* node = GetNodeOrRaise(id);
+    if (!node) return NULL;
+    node->visible = 1;
+    layout_dirty = 1;
+    Py_RETURN_TRUE;
 }
 
 static PyObject* doodle_hide_node(PyObject* self, PyObject* args) {
     const char* id;
     if (!PyArg_ParseTuple(args, "s", &id)) return NULL;
 
-    UINode* node = FindNodeById(root, id);
-    if (node) {
-        node->visible = 0;
-        layout_dirty = 1;
-        Py_RETURN_TRUE;
-    }
-    Py_RETURN_FALSE;
+    UINode* node = GetNodeOrRaise(id);
+    if (!node) return NULL;
+    node->visible = 0;
+    layout_dirty = 1;
+    Py_RETURN_TRUE;
 }
 
 static PyObject* doodle_play_sound(PyObject* self, PyObject* args) {
@@ -289,8 +321,9 @@ static int IsNodeInCamera(UINode* node) {
 static PyObject* doodle_is_node_hovered(PyObject* self, PyObject* args) {
     const char* id;
     if (!PyArg_ParseTuple(args, "s", &id)) return NULL;
-    UINode* node = FindNodeById(root, id);
-    if (node && node->visible) {
+    UINode* node = GetNodeOrRaise(id);
+    if (!node) return NULL;
+    if (node->visible) {
         Vector2 mouse = GetMousePosition();
         if (IsNodeInCamera(node)) {
             mouse = GetScreenToWorld2D(mouse, camera);
@@ -306,8 +339,9 @@ static PyObject* doodle_is_node_hovered(PyObject* self, PyObject* args) {
 static PyObject* doodle_is_node_clicked(PyObject* self, PyObject* args) {
     const char* id;
     if (!PyArg_ParseTuple(args, "s", &id)) return NULL;
-    UINode* node = FindNodeById(root, id);
-    if (node && node->visible) {
+    UINode* node = GetNodeOrRaise(id);
+    if (!node) return NULL;
+    if (node->visible) {
         Vector2 mouse = GetMousePosition();
         if (IsNodeInCamera(node)) {
             mouse = GetScreenToWorld2D(mouse, camera);
@@ -326,31 +360,31 @@ static PyObject* doodle_set_style(PyObject* self, PyObject* args) {
     const char* property_value;
     if (!PyArg_ParseTuple(args, "sss", &id, &property_name, &property_value)) return NULL;
 
-    UINode* node = FindNodeById(root, id);
-    if (node) {
-        extern CSSMap css_registry[];
-        extern int css_registry_count;
-        int applied = 0;
-        int affects_layout = 0;
-        for (int i = 0; i < css_registry_count; i++) {
-            if (strcmp(css_registry[i].property_name, property_name) == 0) {
-                css_registry[i].handler(node, property_value);
-                StyleProps temp = node->style;
-                node->style = node->hover_style;
-                css_registry[i].handler(node, property_value);
-                node->hover_style = node->style;
-                node->style = temp;
-                applied = 1;
-                affects_layout = css_registry[i].affects_layout;
-                break;
-            }
+    UINode* node = GetNodeOrRaise(id);
+    if (!node) return NULL;
+
+    extern CSSMap css_registry[];
+    extern int css_registry_count;
+    int applied = 0;
+    int affects_layout = 0;
+    for (int i = 0; i < css_registry_count; i++) {
+        if (strcmp(css_registry[i].property_name, property_name) == 0) {
+            css_registry[i].handler(node, property_value);
+            StyleProps temp = node->style;
+            node->style = node->hover_style;
+            css_registry[i].handler(node, property_value);
+            node->hover_style = node->style;
+            node->style = temp;
+            applied = 1;
+            affects_layout = css_registry[i].affects_layout;
+            break;
         }
-        if (applied) {
-            if (affects_layout) {
-                layout_dirty = 1;
-            }
-            Py_RETURN_TRUE;
+    }
+    if (applied) {
+        if (affects_layout) {
+            layout_dirty = 1;
         }
+        Py_RETURN_TRUE;
     }
     Py_RETURN_FALSE;
 }
@@ -360,13 +394,11 @@ static PyObject* doodle_get_style(PyObject* self, PyObject* args) {
     const char* property_name;
     if (!PyArg_ParseTuple(args, "ss", &id, &property_name)) return NULL;
 
-    UINode* node = FindNodeById(root, id);
-    if (node) {
-        char val[128] = {0};
-        GetStyleProperty(node, property_name, val, sizeof(val));
-        return Py_BuildValue("s", val);
-    }
-    return Py_BuildValue("s", "");
+    UINode* node = GetNodeOrRaise(id);
+    if (!node) return NULL;
+    char val[128] = {0};
+    GetStyleProperty(node, property_name, val, sizeof(val));
+    return Py_BuildValue("s", val);
 }
 
 static PyObject* doodle_set_camera(PyObject* self, PyObject* args) {
@@ -820,13 +852,12 @@ static PyObject* doodle_batch_process(PyObject* self, PyObject* args, PyObject* 
                 float y = (float)PyFloat_AsDouble(y_obj);
                 Py_XDECREF(x_obj);
                 Py_XDECREF(y_obj);
-                UINode* node = FindNodeById(root, id);
-                if (node) {
-                    node->layout.x = x;
-                    node->layout.y = y;
-                    node->position_set = 1;
-                    layout_dirty = 1;
-                }
+                UINode* node = GetNodeOrRaise(id);
+                if (!node) return NULL;
+                node->layout.x = x;
+                node->layout.y = y;
+                node->position_set = 1;
+                layout_dirty = 1;
             }
         }
     }
@@ -839,8 +870,9 @@ static PyObject* doodle_batch_process(PyObject* self, PyObject* args, PyObject* 
             const char* id = PyUnicode_AsUTF8(key);
             const char* text = PyUnicode_AsUTF8(value);
             if (id && text) {
-                UINode* node = FindNodeById(root, id);
-                if (node && strcmp(node->text_content, text) != 0) {
+                UINode* node = GetNodeOrRaise(id);
+                if (!node) return NULL;
+                if (strcmp(node->text_content, text) != 0) {
                     strncpy(node->text_content, text, sizeof(node->text_content) - 1);
                     node->text_content[sizeof(node->text_content) - 1] = '\0';
                     layout_dirty = 1;
@@ -857,8 +889,9 @@ static PyObject* doodle_batch_process(PyObject* self, PyObject* args, PyObject* 
             const char* id = PyUnicode_AsUTF8(key);
             if (id) {
                 int visible = PyObject_IsTrue(value);
-                UINode* node = FindNodeById(root, id);
-                if (node && node->visible != visible) {
+                UINode* node = GetNodeOrRaise(id);
+                if (!node) return NULL;
+                if (node->visible != visible) {
                     node->visible = visible;
                     layout_dirty = 1;
                 }
@@ -879,8 +912,12 @@ static PyObject* doodle_batch_process(PyObject* self, PyObject* args, PyObject* 
                 const char* id_b_or_group = PyUnicode_AsUTF8(key_b);
 
                 if (id_a && id_b_or_group) {
-                    UINode* node_a = FindNodeById(root, id_a);
-                    if (node_a && node_a->visible) {
+                    UINode* node_a = GetNodeOrRaise(id_a);
+                    if (!node_a) {
+                        Py_DECREF(collision_results);
+                        return NULL;
+                    }
+                    if (node_a->visible) {
                         UINode* node_b = FindNodeById(root, id_b_or_group);
                         if (node_b) {
                             if (node_b->visible) {
@@ -1052,37 +1089,113 @@ static PyObject* doodle_run(PyObject* self, PyObject* args, PyObject* kwargs) {
 
 static PyMethodDef DoodleMethods[] = {
     {"register_tick_callback", doodle_register_tick_callback, METH_VARARGS, "Register update callback"},
+    {"registerTickCallback", doodle_register_tick_callback, METH_VARARGS, "Register update callback"},
+    
     {"check_collision", doodle_check_collision, METH_VARARGS, "Check collision between two IDs"},
+    {"checkCollision", doodle_check_collision, METH_VARARGS, "Check collision between two IDs"},
+    
     {"get_first_collision", (PyCFunction)doodle_get_first_collision, METH_VARARGS | METH_KEYWORDS, "Get first collision in group"},
+    {"getFirstCollision", (PyCFunction)doodle_get_first_collision, METH_VARARGS | METH_KEYWORDS, "Get first collision in group"},
+    
     {"set_position", doodle_set_position, METH_VARARGS, "Set absolute layout pos"},
+    {"setPosition", doodle_set_position, METH_VARARGS, "Set absolute layout pos"},
+    
     {"get_position", doodle_get_position, METH_VARARGS, "Get layout pos"},
+    {"getPosition", doodle_get_position, METH_VARARGS, "Get layout pos"},
+    
     {"remove_node", doodle_remove_node, METH_VARARGS, "Remove node from DOM tree"},
+    {"removeNode", doodle_remove_node, METH_VARARGS, "Remove node from DOM tree"},
+    
     {"update_text", doodle_update_text, METH_VARARGS, "Update text content of node"},
+    {"updateText", doodle_update_text, METH_VARARGS, "Update text content of node"},
+    
     {"show_node", doodle_show_node, METH_VARARGS, "Show hidden node"},
+    {"showNode", doodle_show_node, METH_VARARGS, "Show hidden node"},
+    
     {"hide_node", doodle_hide_node, METH_VARARGS, "Hide node"},
+    {"hideNode", doodle_hide_node, METH_VARARGS, "Hide node"},
+    
     {"play_sound", doodle_play_sound, METH_VARARGS, "Play sound"},
+    {"playSound", doodle_play_sound, METH_VARARGS, "Play sound"},
+    
     {"is_key_down", doodle_is_key_down, METH_VARARGS, "Check if key is down"},
+    {"isKeyDown", doodle_is_key_down, METH_VARARGS, "Check if key is down"},
+    
     {"is_key_pressed", doodle_is_key_pressed, METH_VARARGS, "Check if key is pressed"},
+    {"isKeyPressed", doodle_is_key_pressed, METH_VARARGS, "Check if key is pressed"},
+    
     {"get_mouse_x", doodle_get_mouse_x, METH_NOARGS, "Get mouse X coordinate"},
+    {"getMouseX", doodle_get_mouse_x, METH_NOARGS, "Get mouse X coordinate"},
+    
     {"get_mouse_y", doodle_get_mouse_y, METH_NOARGS, "Get mouse Y coordinate"},
+    {"getMouseY", doodle_get_mouse_y, METH_NOARGS, "Get mouse Y coordinate"},
+    
     {"get_mouse_position", doodle_get_mouse_position, METH_NOARGS, "Get mouse position"},
+    {"getMousePosition", doodle_get_mouse_position, METH_NOARGS, "Get mouse position"},
+    
     {"is_mouse_button_down", doodle_is_mouse_button_down, METH_VARARGS, "Check if mouse button is down"},
+    {"isMouseButtonDown", doodle_is_mouse_button_down, METH_VARARGS, "Check if mouse button is down"},
+    
     {"is_mouse_button_pressed", doodle_is_mouse_button_pressed, METH_VARARGS, "Check if mouse button is pressed"},
+    {"isMouseButtonPressed", doodle_is_mouse_button_pressed, METH_VARARGS, "Check if mouse button is pressed"},
+    
     {"get_mouse_wheel_move", doodle_get_mouse_wheel_move, METH_NOARGS, "Get mouse wheel movement"},
+    {"getMouseWheelMove", doodle_get_mouse_wheel_move, METH_NOARGS, "Get mouse wheel movement"},
+    
     {"set_mouse_cursor", doodle_set_mouse_cursor, METH_VARARGS, "Set mouse cursor type"},
+    {"setMouseCursor", doodle_set_mouse_cursor, METH_VARARGS, "Set mouse cursor type"},
+    
     {"set_window_title", doodle_set_window_title, METH_VARARGS, "Set window title"},
+    {"setWindowTitle", doodle_set_window_title, METH_VARARGS, "Set window title"},
+    
     {"toggle_fullscreen", doodle_toggle_fullscreen, METH_NOARGS, "Toggle fullscreen mode"},
+    {"toggleFullscreen", doodle_toggle_fullscreen, METH_NOARGS, "Toggle fullscreen mode"},
+    
     {"get_screen_size", doodle_get_screen_size, METH_NOARGS, "Get current screen size"},
+    {"getScreenSize", doodle_get_screen_size, METH_NOARGS, "Get current screen size"},
+    
     {"is_node_hovered", doodle_is_node_hovered, METH_VARARGS, "Check if node is hovered"},
+    {"isNodeHovered", doodle_is_node_hovered, METH_VARARGS, "Check if node is hovered"},
+    
     {"is_node_clicked", doodle_is_node_clicked, METH_VARARGS, "Check if node is clicked"},
+    {"isNodeClicked", doodle_is_node_clicked, METH_VARARGS, "Check if node is clicked"},
+    
     {"set_style", doodle_set_style, METH_VARARGS, "Set a style property dynamically"},
+    {"setStyle", doodle_set_style, METH_VARARGS, "Set a style property dynamically"},
+    
     {"get_style", doodle_get_style, METH_VARARGS, "Get a style property dynamically"},
+    {"getStyle", doodle_get_style, METH_VARARGS, "Get a style property dynamically"},
+    
     {"set_camera", doodle_set_camera, METH_VARARGS, "Set 2D camera parameters"},
+    {"setCamera", doodle_set_camera, METH_VARARGS, "Set 2D camera parameters"},
+    
     {"shake_camera", doodle_shake_camera, METH_VARARGS, "Trigger camera screen shake"},
+    {"shakeCamera", doodle_shake_camera, METH_VARARGS, "Trigger camera screen shake"},
+    
     {"spawn_particles", doodle_spawn_particles, METH_VARARGS, "Spawn particle explosion burst"},
+    {"spawnParticles", doodle_spawn_particles, METH_VARARGS, "Spawn particle explosion burst"},
+    
     {"play_synth", doodle_play_synth, METH_VARARGS, "Play procedurally synthesized tone"},
+    {"playSynth", doodle_play_synth, METH_VARARGS, "Play procedurally synthesized tone"},
+    
     {"register_console_callback", doodle_register_console_callback, METH_VARARGS, "Register console command callback"},
+    {"registerConsoleCallback", doodle_register_console_callback, METH_VARARGS, "Register console command callback"},
+    
     {"batch_process", (PyCFunction)doodle_batch_process, METH_VARARGS | METH_KEYWORDS, "Batch process updates and collisions"},
+    {"batchProcess", (PyCFunction)doodle_batch_process, METH_VARARGS | METH_KEYWORDS, "Batch process updates and collisions"},
+    
+    {"get_line_number", doodle_get_line_number, METH_VARARGS, "Get HTML line number of node"},
+    {"getLineNumber", doodle_get_line_number, METH_VARARGS, "Get HTML line number of node"},
+    
+    {"get_layout_size", doodle_get_layout_size, METH_VARARGS, "Get calculated width and height of node"},
+    {"getLayoutSize", doodle_get_layout_size, METH_VARARGS, "Get calculated width and height of node"},
+    
+    {"is_visible", doodle_is_visible, METH_VARARGS, "Check if node is visible"},
+    {"isVisible", doodle_is_visible, METH_VARARGS, "Check if node is visible"},
+    
+    {"get_text", doodle_get_text, METH_VARARGS, "Get text content of node"},
+    {"getText", doodle_get_text, METH_VARARGS, "Get text content of node"},
+    
     {"run", (PyCFunction)doodle_run, METH_VARARGS | METH_KEYWORDS, "Start the engine loop"},
     {NULL, NULL, 0, NULL}
 };

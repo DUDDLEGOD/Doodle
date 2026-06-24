@@ -93,6 +93,7 @@ UINode* CreateNode(NodeType type) {
     node->use_camera = 0;
     node->thickness = 1.0f;
     node->shape_color = WHITE;
+    node->line_number = 0;
     
     return node;
 }

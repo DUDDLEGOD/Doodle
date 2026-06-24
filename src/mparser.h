@@ -81,6 +81,7 @@ typedef struct UINode {
     struct UINode* parent;
     struct UINode* children[128];
     int child_count;
+    int line_number;
 } UINode;
 
 typedef void (*CSSPropertyHandler)(UINode* node, const char* value);

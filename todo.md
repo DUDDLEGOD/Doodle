@@ -48,11 +48,6 @@
 - **Record / playback** – Capture inputs and state for deterministic testing.
 
 ### 1. **Performance & Memory**
-- **Object pooling** – Reuse node and particle objects to reduce allocation pressure.
-- **Batched draw calls** – Group elements with same textures/shader into one draw call.
-- **Lazy parsing** – Only parse CSS and DOM on initial load; avoid reparsing on state updates.
-- **Reduce Python‑C roundtrips** – Batch property updates and collation checks into one C call.
-- **Use SIMD or fast math** – For vector operations, especially in particle and audio synthesis.
 
 ### 2. **API Consistency & Ergonomics**
 - **Uniform naming conventions** – e.g., `get_node()` vs. `getNode()`. Stick to snake_case.

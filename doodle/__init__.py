@@ -1,12 +1,18 @@
-try:
-    from . import _doodle
-except ImportError:
-    import _doodle
+"""
+Doodle UI Engine Python Wrapper
+Hardware-accelerated DOM-based UI & 2D Game Engine
+"""
+
+from typing import Callable, Any, Optional, Dict, List, Tuple, Union
 import sys
 import os
 import re
 import time
-import math
+
+try:
+    from . import _doodle
+except ImportError:
+    import _doodle
 
 # Re-export all flat APIs from _doodle
 for name in dir(_doodle):
@@ -15,16 +21,16 @@ for name in dir(_doodle):
 
 # Event listener registry
 # node_id -> event_type -> list of callables
-_event_listeners = {}
-_event_context = {}
-_inline_listeners = {}
-_all_event_nodes = []
+_event_listeners: Dict[str, Dict[str, List[Callable[[], None]]]] = {}
+_event_context: Dict[str, Any] = {}
+_inline_listeners: Dict[Tuple[str, str], str] = {}
+_all_event_nodes: List[str] = []
 
-def _rebuild_event_nodes():
+def _rebuild_event_nodes() -> None:
     global _all_event_nodes
     _all_event_nodes = list(set(list(_event_listeners.keys()) + [k[0] for k in _inline_listeners.keys()]))
 
-def add_event_listener(node_id, event_type, callback):
+def addEventListener(node_id: str, event_type: str, callback: Callable[[], None]) -> None:
     if node_id not in _event_listeners:
         _event_listeners[node_id] = {}
     if event_type not in _event_listeners[node_id]:
@@ -32,26 +38,46 @@ def add_event_listener(node_id, event_type, callback):
     _event_listeners[node_id][event_type].append(callback)
     _rebuild_event_nodes()
 
-def set_event_context(context_dict):
+add_event_listener = addEventListener  # Backward compatibility alias
+
+def setEventContext(context_dict: Dict[str, Any]) -> None:
     global _event_context
     _event_context.update(context_dict)
 
+set_event_context = setEventContext  # Backward compatibility alias
+
+def _raise_property_error(node_id: str, prop_name: str, expected_type: str, actual_value: Any) -> None:
+    try:
+        line_num = _doodle.getLineNumber(node_id)
+        location = f"layout.html:L{line_num}"
+    except Exception:
+        location = "unknown location"
+    
+    msg = (
+        f"Invalid value for property '{prop_name}' on node '{node_id}' (defined at {location}).\n"
+        f"Expected: {expected_type}\n"
+        f"Got: {repr(actual_value)} (type: {type(actual_value).__name__})"
+    )
+    raise TypeError(msg)
+
 # OOP Wrapper Node Class
 class NodeStyleProxy:
-    def __init__(self, node_id):
+    def __init__(self, node_id: str):
         self._id = node_id
-    def __setattr__(self, name, value):
+
+    def __setattr__(self, name: str, value: Any) -> None:
         if name.startswith('_'):
             super().__setattr__(name, value)
         else:
             # Convert python_name to css-property-name (e.g. background_color -> background-color)
             css_name = name.replace('_', '-')
-            _doodle.set_style(self._id, css_name, str(value))
-    def __getattr__(self, name):
+            _doodle.setStyle(self._id, css_name, str(value))
+
+    def __getattr__(self, name: str) -> Union[str, float, int]:
         if name.startswith('_'):
             raise AttributeError(name)
         css_name = name.replace('_', '-')
-        val = _doodle.get_style(self._id, css_name)
+        val = _doodle.getStyle(self._id, css_name)
         if not val:
             return ""
         try:
@@ -62,58 +88,129 @@ class NodeStyleProxy:
             return val
 
 class Node:
-    def __init__(self, node_id):
-        self.id = node_id
-        self.style = NodeStyleProxy(node_id)
+    def __init__(self, node_id: str):
+        self.id: str = node_id
+        self.style: NodeStyleProxy = NodeStyleProxy(node_id)
 
     @property
-    def position(self):
-        return _doodle.get_position(self.id)
+    def position(self) -> Tuple[float, float]:
+        return _doodle.getPosition(self.id)
 
     @position.setter
-    def position(self, pos):
-        _doodle.set_position(self.id, float(pos[0]), float(pos[1]))
+    def position(self, pos: Union[Tuple[float, float], List[float]]) -> None:
+        if not isinstance(pos, (tuple, list)) or len(pos) < 2:
+            _raise_property_error(self.id, "position", "tuple or list of 2 numbers", pos)
+        try:
+            val_x = float(pos[0])
+            val_y = float(pos[1])
+        except (ValueError, TypeError):
+            _raise_property_error(self.id, "position", "tuple or list of 2 numbers", pos)
+        _doodle.setPosition(self.id, val_x, val_y)
 
     @property
-    def x(self):
-        return _doodle.get_position(self.id)[0]
+    def x(self) -> float:
+        return _doodle.getPosition(self.id)[0]
 
     @x.setter
-    def x(self, val):
-        y = _doodle.get_position(self.id)[1]
-        _doodle.set_position(self.id, float(val), y)
+    def x(self, val: float) -> None:
+        try:
+            val_f = float(val)
+        except (ValueError, TypeError):
+            _raise_property_error(self.id, "x", "float or int", val)
+        y = _doodle.getPosition(self.id)[1]
+        _doodle.setPosition(self.id, val_f, y)
 
     @property
-    def y(self):
-        return _doodle.get_position(self.id)[1]
+    def y(self) -> float:
+        return _doodle.getPosition(self.id)[1]
 
     @y.setter
-    def y(self, val):
-        x = _doodle.get_position(self.id)[0]
-        _doodle.set_position(self.id, x, float(val))
+    def y(self, val: float) -> None:
+        try:
+            val_f = float(val)
+        except (ValueError, TypeError):
+            _raise_property_error(self.id, "y", "float or int", val)
+        x = _doodle.getPosition(self.id)[0]
+        _doodle.setPosition(self.id, x, val_f)
 
     @property
-    def text(self):
-        return ""
+    def width(self) -> float:
+        return _doodle.getLayoutSize(self.id)[0]
+
+    @width.setter
+    def width(self, val: float) -> None:
+        try:
+            val_f = float(val)
+        except (ValueError, TypeError):
+            _raise_property_error(self.id, "width", "float or int", val)
+        _doodle.setStyle(self.id, "width", f"{val_f}px")
+
+    @property
+    def w(self) -> float:
+        return self.width
+
+    @w.setter
+    def w(self, val: float) -> None:
+        self.width = val
+
+    @property
+    def height(self) -> float:
+        return _doodle.getLayoutSize(self.id)[1]
+
+    @height.setter
+    def height(self, val: float) -> None:
+        try:
+            val_f = float(val)
+        except (ValueError, TypeError):
+            _raise_property_error(self.id, "height", "float or int", val)
+        _doodle.setStyle(self.id, "height", f"{val_f}px")
+
+    @property
+    def h(self) -> float:
+        return self.height
+
+    @h.setter
+    def h(self, val: float) -> None:
+        self.height = val
+
+    @property
+    def text(self) -> str:
+        return _doodle.getText(self.id)
 
     @text.setter
-    def text(self, value):
-        _doodle.update_text(self.id, str(value))
+    def text(self, value: Any) -> None:
+        _doodle.updateText(self.id, str(value))
 
-    def show(self):
-        _doodle.show_node(self.id)
+    @property
+    def visible(self) -> bool:
+        return bool(_doodle.isVisible(self.id))
 
-    def hide(self):
-        _doodle.hide_node(self.id)
+    @visible.setter
+    def visible(self, val: Any) -> None:
+        is_vis = bool(val)
+        if is_vis:
+            _doodle.showNode(self.id)
+        else:
+            _doodle.hideNode(self.id)
 
-def get_node(node_id):
+    def show(self) -> None:
+        _doodle.showNode(self.id)
+
+    def hide(self) -> None:
+        _doodle.hideNode(self.id)
+
+def getNode(node_id: str) -> Node:
+    # Verifies node existence in the DOM tree, raises KeyError if missing
+    _doodle.getLineNumber(node_id)
     return Node(node_id)
 
-# Tweens Animation Engine
-_active_tweens = []
+get_node = getNode  # Backward compatibility alias
 
-def animate(node_id, target_x=None, target_y=None, duration=0.5, ease="quad_out"):
-    node = Node(node_id)
+# Tweens Animation Engine
+_active_tweens: List[Dict[str, Any]] = []
+
+def animate(node_id: str, target_x: Optional[float] = None, target_y: Optional[float] = None, duration: float = 0.5, ease: str = "quad_out") -> None:
+    node = getNode(node_id)
     start_x, start_y = node.position
     
     if target_x is not None:
@@ -137,7 +234,7 @@ def animate(node_id, target_x=None, target_y=None, duration=0.5, ease="quad_out"
             "ease": ease
         })
 
-def _update_tweens(dt):
+def _update_tweens(dt: float) -> None:
     global _active_tweens
     still_active = []
     for t in _active_tweens:
@@ -161,16 +258,16 @@ def _update_tweens(dt):
     _active_tweens = still_active
 
 # Waveform Constants
-WAVE_SINE = 0
-WAVE_SQUARE = 1
-WAVE_TRIANGLE = 2
-WAVE_SAWTOOTH = 3
-WAVE_NOISE = 4
+WAVE_SINE: int = 0
+WAVE_SQUARE: int = 1
+WAVE_TRIANGLE: int = 2
+WAVE_SAWTOOTH: int = 3
+WAVE_NOISE: int = 4
 
 # Template Data Binding
-_templates = {}
+_templates: Dict[str, str] = {}
 
-def _parse_layout_templates(layout_path):
+def _parse_layout_templates(layout_path: str) -> None:
     global _templates
     _templates = {}
     try:
@@ -186,20 +283,22 @@ def _parse_layout_templates(layout_path):
     except Exception as e:
         print(f"Template parsing warning: {e}")
 
-_tick_callback = None
+_tick_callback: Optional[Callable[[], None]] = None
 
-def register_tick_callback(callback):
+def registerTickCallback(callback: Callable[[], None]) -> None:
     global _tick_callback
     _tick_callback = callback
 
-def _update_templates(state):
+register_tick_callback = registerTickCallback  # Backward compatibility alias
+
+def _update_templates(state: Dict[str, Any]) -> None:
     for node_id, format_str in _templates.items():
         try:
-            _doodle.update_text(node_id, format_str.format(**state))
+            _doodle.updateText(node_id, format_str.format(**state))
         except Exception:
             pass
 
-def _default_console_callback(cmd):
+def _default_console_callback(cmd: str) -> str:
     import io
     main_mod = sys.modules.get('__main__')
     namespace = main_mod.__dict__ if main_mod else globals()
@@ -225,7 +324,7 @@ def _default_console_callback(cmd):
     return new_stdout.getvalue().rstrip('\n')
 
 # Extended main run loop
-def run(layout="layout.html", style="styles.css", width=800, height=600, title="Doodle Engine", state=None):
+def run(layout: str = "layout.html", style: str = "styles.css", width: int = 800, height: int = 600, title: str = "Doodle Engine", state: Optional[Dict[str, Any]] = None) -> Any:
     # Automatically change working directory to the directory of the script being run
     if sys.argv and sys.argv[0]:
         script_dir = os.path.dirname(os.path.abspath(sys.argv[0]))
@@ -264,7 +363,7 @@ def run(layout="layout.html", style="styles.css", width=800, height=600, title="
 
     last_time = time.perf_counter()
     
-    def wrapper_tick():
+    def wrapper_tick() -> None:
         nonlocal last_time
         now = time.perf_counter()
         dt = now - last_time
@@ -276,7 +375,7 @@ def run(layout="layout.html", style="styles.css", width=800, height=600, title="
             _update_templates(state)
             
         for node_id in _all_event_nodes:
-            if _doodle.is_node_clicked(node_id):
+            if _doodle.isNodeClicked(node_id):
                 if node_id in _event_listeners and "click" in _event_listeners[node_id]:
                     for cb in _event_listeners[node_id]["click"]:
                         cb()
@@ -286,7 +385,7 @@ def run(layout="layout.html", style="styles.css", width=800, height=600, title="
                     if cb:
                         cb()
                         
-            if _doodle.is_node_hovered(node_id):
+            if _doodle.isNodeHovered(node_id):
                 if node_id in _event_listeners and "hover" in _event_listeners[node_id]:
                     for cb in _event_listeners[node_id]["hover"]:
                         cb()
@@ -300,7 +399,7 @@ def run(layout="layout.html", style="styles.css", width=800, height=600, title="
             _tick_callback()
 
     # Setup Python wrapper's registration hook
-    _doodle.register_tick_callback(wrapper_tick)
-    _doodle.register_console_callback(_default_console_callback)
+    _doodle.registerTickCallback(wrapper_tick)
+    _doodle.registerConsoleCallback(_default_console_callback)
     
     return _doodle.run(layout=layout, style=style, width=width, height=height, title=title)

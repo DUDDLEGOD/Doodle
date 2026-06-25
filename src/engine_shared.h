@@ -4,15 +4,18 @@
 #include "raylib.h"
 #include "mparser.h"
 
-// Shared Globals
-extern UINode* root;
-extern int layout_dirty;
-extern Camera2D camera;
-extern float shake_intensity;
-extern float shake_duration;
+typedef struct {
+    UINode* root;
+    int layout_dirty;
+    Camera2D camera;
+    float shake_intensity;
+    float shake_duration;
+    
+    int g_draw_calls;
+    int dev_tools_active;
+    int console_active;
+} DoodleContext;
 
-extern int g_draw_calls;
-extern int dev_tools_active;
-extern int console_active;
+extern DoodleContext ctx;
 
 #endif // ENGINE_SHARED_H

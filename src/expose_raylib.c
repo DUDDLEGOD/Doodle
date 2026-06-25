@@ -18,19 +18,14 @@
 #include <string.h>
 #include <math.h>
 #include <stdio.h>
+#include "engine_shared.h"
 
-UINode* root = NULL;
-int layout_dirty = 1;
+DoodleContext ctx = {0};
+
 static PyObject* tick_callback = NULL;
 
 // Camera state
 Camera2D camera = { .zoom = 1.0f };
-float shake_intensity = 0.0f;
-float shake_duration = 0.0f;
-
-int g_draw_calls = 0;
-int dev_tools_active = 0;
-int console_active = 0;
 
 // Collision Helper
 static UINode* FindCollisionNode(UINode* current, UINode* target, const char* group, Rectangle target_rec) {
@@ -83,7 +78,7 @@ static UINode* FindCollisionNode(UINode* current, UINode* target, const char* gr
 }
 
 static UINode* GetNodeOrRaise(const char* id) {
-    UINode* node = FindNodeById(root, id);
+    UINode* node = FindNodeById(ctx.root, id);
     if (!node) {
         PyErr_Format(PyExc_KeyError, "Node with ID '%s' not found in the DOM tree.", id);
     }
@@ -189,7 +184,7 @@ static PyObject* doodle_get_first_collision(PyObject* self, PyObject* args, PyOb
     if (!node->visible) Py_RETURN_NONE;
 
     Rectangle rec = {node->layout.x, node->layout.y, node->layout.width, node->layout.height};
-    UINode* collision = FindCollisionNode(root, node, group, rec);
+    UINode* collision = FindCollisionNode(ctx.root, node, group, rec);
     if (collision) {
         return Py_BuildValue("s", collision->id);
     }
@@ -204,10 +199,9 @@ static PyObject* doodle_set_position(PyObject* self, PyObject* args) {
     UINode* node = GetNodeOrRaise(id);
     if (!node) return NULL;
 
-    node->layout.x = x;
-    node->layout.y = y;
-    node->position_set = 1;
-    layout_dirty = 1;
+    node->style.left = x;
+    node->style.top = y;
+    ctx.layout_dirty = 1;
     Py_RETURN_TRUE;
 }
 
@@ -217,7 +211,7 @@ static PyObject* doodle_get_position(PyObject* self, PyObject* args) {
 
     UINode* node = GetNodeOrRaise(id);
     if (!node) return NULL;
-    return Py_BuildValue("ff", node->layout.x, node->layout.y);
+    return Py_BuildValue("ff", node->style.left, node->style.top);
 }
 
 static PyObject* doodle_remove_node(PyObject* self, PyObject* args) {
@@ -226,8 +220,8 @@ static PyObject* doodle_remove_node(PyObject* self, PyObject* args) {
 
     UINode* node = GetNodeOrRaise(id);
     if (!node) return NULL;
-    RemoveNode(root, node);
-    layout_dirty = 1;
+    RemoveNode(ctx.root, node);
+    ctx.layout_dirty = 1;
     Py_RETURN_TRUE;
 }
 
@@ -241,7 +235,7 @@ static PyObject* doodle_update_text(PyObject* self, PyObject* args) {
     if (strcmp(node->text_content, text) != 0) {
         strncpy(node->text_content, text, sizeof(node->text_content) - 1);
         node->text_content[sizeof(node->text_content) - 1] = '\0';
-        layout_dirty = 1;
+        ctx.layout_dirty = 1;
     }
     Py_RETURN_TRUE;
 }
@@ -253,7 +247,7 @@ static PyObject* doodle_show_node(PyObject* self, PyObject* args) {
     UINode* node = GetNodeOrRaise(id);
     if (!node) return NULL;
     node->visible = 1;
-    layout_dirty = 1;
+    ctx.layout_dirty = 1;
     Py_RETURN_TRUE;
 }
 
@@ -264,7 +258,7 @@ static PyObject* doodle_hide_node(PyObject* self, PyObject* args) {
     UINode* node = GetNodeOrRaise(id);
     if (!node) return NULL;
     node->visible = 0;
-    layout_dirty = 1;
+    ctx.layout_dirty = 1;
     Py_RETURN_TRUE;
 }
 
@@ -382,7 +376,7 @@ static PyObject* doodle_set_style(PyObject* self, PyObject* args) {
     }
     if (applied) {
         if (affects_layout) {
-            layout_dirty = 1;
+            ctx.layout_dirty = 1;
         }
         Py_RETURN_TRUE;
     }
@@ -404,18 +398,18 @@ static PyObject* doodle_get_style(PyObject* self, PyObject* args) {
 static PyObject* doodle_set_camera(PyObject* self, PyObject* args) {
     float tx, ty, ox, oy, zoom, rot;
     if (!PyArg_ParseTuple(args, "ffffff", &tx, &ty, &ox, &oy, &zoom, &rot)) return NULL;
-    camera.target = (Vector2){tx, ty};
-    camera.offset = (Vector2){ox, oy};
-    camera.zoom = zoom;
-    camera.rotation = rot;
+    ctx.camera.target = (Vector2){tx, ty};
+    ctx.camera.offset = (Vector2){ox, oy};
+    ctx.camera.zoom = zoom;
+    ctx.camera.rotation = rot;
     Py_RETURN_NONE;
 }
 
 static PyObject* doodle_shake_camera(PyObject* self, PyObject* args) {
     float intensity, duration;
     if (!PyArg_ParseTuple(args, "ff", &intensity, &duration)) return NULL;
-    shake_intensity = intensity;
-    shake_duration = duration;
+    ctx.shake_intensity = intensity;
+    ctx.shake_duration = duration;
     Py_RETURN_NONE;
 }
 
@@ -550,18 +544,18 @@ static void UpdateConsoleInput(void) {
 
 static void DrawDeveloperTools(int width, int height, double cpu_time_ms) {
     if (IsKeyPressed(KEY_F3)) {
-        dev_tools_active = !dev_tools_active;
+        ctx.dev_tools_active = !ctx.dev_tools_active;
     }
     if (IsKeyPressed(KEY_F1) || IsKeyPressed(KEY_GRAVE)) {
-        console_active = !console_active;
-        if (console_active) dev_tools_active = 1;
+        ctx.console_active = !ctx.console_active;
+        if (ctx.console_active) ctx.dev_tools_active = 1;
     }
 
-    if (console_active) {
+    if (ctx.console_active) {
         UpdateConsoleInput();
     }
 
-    if (dev_tools_active) {
+    if (ctx.dev_tools_active) {
         int p_width = 220;
         int p_height = 135;
         int p_x = width - p_width - 15;
@@ -582,7 +576,7 @@ static void DrawDeveloperTools(int width, int height, double cpu_time_ms) {
         sprintf(buf, "CPU: %.2f ms", cpu_time_ms);
         DrawText(buf, p_x + 12, p_y + 48, 11, (Color){ 0, 255, 204, 255 });
 
-        sprintf(buf, "Draw Calls: %d", g_draw_calls);
+        sprintf(buf, "Draw Calls: %d", ctx.g_draw_calls);
         DrawText(buf, p_x + 12, p_y + 64, 11, WHITE);
 
         double ram = GetProcessMemoryUsage();
@@ -593,7 +587,7 @@ static void DrawDeveloperTools(int width, int height, double cpu_time_ms) {
         }
         DrawText(buf, p_x + 12, p_y + 80, 11, WHITE);
 
-        int node_count = CountNodes(root);
+        int node_count = CountNodes(ctx.root);
         int p_count = GetActiveParticleCount();
         sprintf(buf, "Nodes: %d | Part: %d", node_count, p_count);
         DrawText(buf, p_x + 12, p_y + 96, 11, WHITE);
@@ -633,7 +627,7 @@ static void DrawDeveloperTools(int width, int height, double cpu_time_ms) {
         }
     }
 
-    if (console_active) {
+    if (ctx.console_active) {
         int c_height = 180;
         int c_y = height - c_height;
 
@@ -688,7 +682,7 @@ static PyObject* doodle_register_console_callback(PyObject* self, PyObject* args
 static PyObject* doodle_is_key_down(PyObject* self, PyObject* args) {
     int key;
     if (!PyArg_ParseTuple(args, "i", &key)) return NULL;
-    if (console_active) {
+    if (ctx.console_active) {
         Py_RETURN_FALSE;
     }
     if (IsKeyDown(key)) {
@@ -700,7 +694,7 @@ static PyObject* doodle_is_key_down(PyObject* self, PyObject* args) {
 static PyObject* doodle_is_key_pressed(PyObject* self, PyObject* args) {
     int key;
     if (!PyArg_ParseTuple(args, "i", &key)) return NULL;
-    if (console_active) {
+    if (ctx.console_active) {
         Py_RETURN_FALSE;
     }
     if (IsKeyPressed(key)) {
@@ -853,10 +847,9 @@ static PyObject* doodle_batch_process(PyObject* self, PyObject* args, PyObject* 
                 Py_XDECREF(y_obj);
                 UINode* node = GetNodeOrRaise(id);
                 if (!node) return NULL;
-                node->layout.x = x;
-                node->layout.y = y;
-                node->position_set = 1;
-                layout_dirty = 1;
+                node->style.left = x;
+                node->style.top = y;
+                ctx.layout_dirty = 1;
             }
         }
     }
@@ -874,7 +867,7 @@ static PyObject* doodle_batch_process(PyObject* self, PyObject* args, PyObject* 
                 if (strcmp(node->text_content, text) != 0) {
                     strncpy(node->text_content, text, sizeof(node->text_content) - 1);
                     node->text_content[sizeof(node->text_content) - 1] = '\0';
-                    layout_dirty = 1;
+                    ctx.layout_dirty = 1;
                 }
             }
         }
@@ -892,10 +885,20 @@ static PyObject* doodle_batch_process(PyObject* self, PyObject* args, PyObject* 
                 if (!node) return NULL;
                 if (node->visible != visible) {
                     node->visible = visible;
-                    layout_dirty = 1;
+                    ctx.layout_dirty = 1;
                 }
             }
         }
+    }
+
+    if (ctx.layout_dirty) {
+        MeasureNode(ctx.root);
+        ctx.root->layout.width = (float)GetRenderWidth();
+        ctx.root->layout.height = (float)GetRenderHeight();
+        ctx.root->layout.x = 0;
+        ctx.root->layout.y = 0;
+        LayoutNode(ctx.root, (float)GetRenderWidth(), (float)GetRenderHeight());
+        ctx.layout_dirty = 0;
     }
 
     // 4. Process collisions
@@ -917,7 +920,7 @@ static PyObject* doodle_batch_process(PyObject* self, PyObject* args, PyObject* 
                         return NULL;
                     }
                     if (node_a->visible) {
-                        UINode* node_b = FindNodeById(root, id_b_or_group);
+                        UINode* node_b = FindNodeById(ctx.root, id_b_or_group);
                         if (node_b) {
                             if (node_b->visible) {
                                 int col = 0;
@@ -948,7 +951,7 @@ static PyObject* doodle_batch_process(PyObject* self, PyObject* args, PyObject* 
                             }
                         } else {
                             Rectangle rec = {node_a->layout.x, node_a->layout.y, node_a->layout.width, node_a->layout.height};
-                            UINode* collision = FindCollisionNode(root, node_a, id_b_or_group, rec);
+                            UINode* collision = FindCollisionNode(ctx.root, node_a, id_b_or_group, rec);
                             if (collision) {
                                 PyObject* col_id = PyUnicode_FromString(collision->id);
                                 PyDict_SetItem(collision_results, item, col_id);
@@ -986,13 +989,19 @@ static PyObject* doodle_run(PyObject* self, PyObject* args, PyObject* kwargs) {
     InitSynth();
     SetTargetFPS(60);
 
-    root = ParseHTML(layout);
-    if (root) {
-        LoadAndApplyCSS(root, style);
-        SetupAudioNodes(root);
-        ComputeLayout(root, 0, 0, (float)width, (float)height);
+    ctx.root = ParseHTML(layout);
+    if (ctx.root) {
+        LoadCSS(style);
+        ApplyStyleSheetToTree(ctx.root);
+        SetupAudioNodes(ctx.root);
+        MeasureNode(ctx.root);
+        ctx.root->layout.width = (float)width;
+        ctx.root->layout.height = (float)height;
+        ctx.root->layout.x = 0;
+        ctx.root->layout.y = 0;
+        LayoutNode(ctx.root, (float)width, (float)height);
     }
-    layout_dirty = 0;
+    ctx.layout_dirty = 0;
 
     time_t layout_mtime = 0;
     time_t style_mtime = 0;
@@ -1015,23 +1024,29 @@ static PyObject* doodle_run(PyObject* self, PyObject* args, PyObject* kwargs) {
 
         if (reload_needed) {
             saved_positions_count = 0;
-            SavePositions(root);
+            SavePositions(ctx.root);
 
-            FreeNode(root);
+            FreeNode(ctx.root);
             UnloadActiveMusics();
 
-            root = ParseHTML(layout);
-            if (root) {
-                LoadAndApplyCSS(root, style);
-                RestorePositions(root);
-                SetupAudioNodes(root);
-                ComputeLayout(root, 0, 0, (float)width, (float)height);
+            ctx.root = ParseHTML(layout);
+            if (ctx.root) {
+                LoadCSS(style);
+        ApplyStyleSheetToTree(ctx.root);
+                RestorePositions(ctx.root);
+                SetupAudioNodes(ctx.root);
+                MeasureNode(ctx.root);
+        ctx.root->layout.width = (float)width;
+        ctx.root->layout.height = (float)height;
+        ctx.root->layout.x = 0;
+        ctx.root->layout.y = 0;
+        LayoutNode(ctx.root, (float)width, (float)height);
             }
-            layout_dirty = 0;
+            ctx.layout_dirty = 0;
         }
 
-        if (root && UpdateHoverStates(root)) {
-            layout_dirty = 1;
+        if (ctx.root && UpdateHoverStates(ctx.root)) {
+            ctx.layout_dirty = 1;
         }
 
         double tick_start = GetTime();
@@ -1046,9 +1061,14 @@ static PyObject* doodle_run(PyObject* self, PyObject* args, PyObject* kwargs) {
         double tick_end = GetTime();
         double cpu_time_ms = (tick_end - tick_start) * 1000.0;
 
-        if (layout_dirty && root) {
-            ComputeLayout(root, 0, 0, (float)width, (float)height);
-            layout_dirty = 0;
+        if (ctx.layout_dirty && ctx.root) {
+            MeasureNode(ctx.root);
+        ctx.root->layout.width = (float)width;
+        ctx.root->layout.height = (float)height;
+        ctx.root->layout.x = 0;
+        ctx.root->layout.y = 0;
+        LayoutNode(ctx.root, (float)width, (float)height);
+            ctx.layout_dirty = 0;
         }
 
         UpdateMusicStreams();
@@ -1056,9 +1076,9 @@ static PyObject* doodle_run(PyObject* self, PyObject* args, PyObject* kwargs) {
         BeginDrawing();
         ClearBackground(BLACK);
         
-        if (root) {
-            g_draw_calls = 0;
-            DrawUINode(root);
+        if (ctx.root) {
+            ctx.g_draw_calls = 0;
+            DrawUINode(ctx.root);
         }
         
         UpdateAndDrawParticles();
@@ -1078,9 +1098,9 @@ static PyObject* doodle_run(PyObject* self, PyObject* args, PyObject* kwargs) {
     CloseAudioDevice();
     CloseWindow();
     
-    if (root) {
-        FreeNode(root);
-        root = NULL;
+    if (ctx.root) {
+        FreeNode(ctx.root);
+        ctx.root = NULL;
     }
 
     Py_RETURN_NONE;

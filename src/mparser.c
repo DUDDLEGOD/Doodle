@@ -19,42 +19,48 @@ typedef struct {
     UINode* node;
 } HashEntry;
 
-static HashEntry node_hash_table[2048];
-int node_hash_table_dirty = 1;
+// Fast dynamic hash table
+static HashEntry node_hash_table[4096]; // Increased size
 
-void MarkNodeHashTableDirty(void) {
-    node_hash_table_dirty = 1;
-}
-
-static void PopulateHashHelper(UINode* n) {
-    if (!n) return;
-    if (strlen(n->id) > 0) {
-        unsigned int h = hash_id(n->id);
-        for (int i = 0; i < 2048; i++) {
-            unsigned int idx = (h + i) % 2048;
-            if (node_hash_table[idx].node == NULL) {
-                snprintf(node_hash_table[idx].id, sizeof(node_hash_table[idx].id), "%s", n->id);
-                node_hash_table[idx].node = n;
-                break;
-            }
+void AddToHashTable(UINode* node) {
+    if (!node || strlen(node->id) == 0) return;
+    unsigned int h = hash_id(node->id);
+    for (int i = 0; i < 4096; i++) {
+        unsigned int idx = (h + i) % 4096;
+        if (node_hash_table[idx].node == NULL) {
+            snprintf(node_hash_table[idx].id, sizeof(node_hash_table[idx].id), "%s", node->id);
+            node_hash_table[idx].node = node;
+            break;
         }
     }
-    for (int i = 0; i < n->child_count; i++) {
-        PopulateHashHelper(n->children[i]);
+}
+
+void RemoveFromHashTable(const char* id) {
+    if (!id || strlen(id) == 0) return;
+    unsigned int h = hash_id(id);
+    for (int i = 0; i < 4096; i++) {
+        unsigned int idx = (h + i) % 4096;
+        if (node_hash_table[idx].node != NULL && strcmp(node_hash_table[idx].id, id) == 0) {
+            node_hash_table[idx].node = NULL;
+            node_hash_table[idx].id[0] = '\0';
+            break;
+        }
     }
 }
 
-void RebuildNodeHashTable(UINode* root_node) {
+void InitDOM(void) {
     memset(node_hash_table, 0, sizeof(node_hash_table));
-    if (root_node) {
-        PopulateHashHelper(root_node);
-    }
-    node_hash_table_dirty = 0;
+    g_node_id_counter = 0;
 }
 
-#define NODE_POOL_MAX 1024
+#define NODE_POOL_MAX 8192
 static UINode* node_pool[NODE_POOL_MAX];
 static int node_pool_count = 0;
+
+void CleanupDOM(void) {
+    // Only used on hard resets if we tracked all roots, but usually Python garbage collects via RemoveNode
+    InitDOM();
+}
 
 UINode* CreateNode(NodeType type) {
     UINode* node = NULL;
@@ -68,6 +74,7 @@ UINode* CreateNode(NodeType type) {
     
     node->type = type;
     sprintf(node->id, "__node_%d", ++g_node_id_counter);
+    AddToHashTable(node);
     
     // Style defaults
     node->style.bg_color = BLANK;
@@ -102,7 +109,14 @@ void FreeNode(UINode* node) {
     for (int i = 0; i < node->child_count; i++) {
         FreeNode(node->children[i]);
     }
+    if (node->children) {
+        free(node->children);
+        node->children = NULL;
+    }
     node->child_count = 0;
+    node->child_capacity = 0;
+    
+    RemoveFromHashTable(node->id);
     
     if (node_pool_count < NODE_POOL_MAX) {
         node_pool[node_pool_count++] = node;
@@ -112,20 +126,25 @@ void FreeNode(UINode* node) {
 }
 
 void AddChild(UINode* parent, UINode* child) {
-    if (!parent || !child || parent->child_count >= 128) return;
+    if (!parent || !child) return;
+    
+    if (parent->child_count >= parent->child_capacity) {
+        int new_cap = parent->child_capacity == 0 ? 8 : parent->child_capacity * 2;
+        UINode** new_children = (UINode**)realloc(parent->children, new_cap * sizeof(UINode*));
+        if (!new_children) return;
+        parent->children = new_children;
+        parent->child_capacity = new_cap;
+    }
+    
     parent->children[parent->child_count++] = child;
     child->parent = parent;
-    node_hash_table_dirty = 1;
 }
 
 UINode* FindNodeById(UINode* root_node, const char* id) {
-    if (!root_node || !id) return NULL;
-    if (node_hash_table_dirty) {
-        RebuildNodeHashTable(root_node);
-    }
+    if (!id) return NULL;
     unsigned int h = hash_id(id);
-    for (int i = 0; i < 2048; i++) {
-        unsigned int idx = (h + i) % 2048;
+    for (int i = 0; i < 4096; i++) {
+        unsigned int idx = (h + i) % 4096;
         if (node_hash_table[idx].node == NULL) {
             return NULL;
         }
@@ -137,7 +156,7 @@ UINode* FindNodeById(UINode* root_node, const char* id) {
 }
 
 void RemoveNode(UINode* root_node, UINode* node_to_remove) {
-    if (!root_node || !node_to_remove) return;
+    if (!node_to_remove) return;
     if (node_to_remove->parent) {
         UINode* parent = node_to_remove->parent;
         int found_idx = -1;
@@ -155,7 +174,6 @@ void RemoveNode(UINode* root_node, UINode* node_to_remove) {
         }
     }
     FreeNode(node_to_remove);
-    node_hash_table_dirty = 1;
 }
 
 void GetStyleProperty(UINode* node, const char* name, char* out_value, int max_len) {

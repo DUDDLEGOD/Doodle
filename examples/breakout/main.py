@@ -97,8 +97,6 @@ def game_loop_tick():
         ]
     )
 
-    # Dynamic camera offset tracking
-    doodle.set_camera(400.0, 300.0, 400.0 + ball_dx * 1.5, 300.0 + ball_dy * 1.5, 1.0, 0.0)
 
     # 3. Collision with Paddle
     if res.get(("ball", "paddle"), False):

@@ -2,7 +2,7 @@
 #include "color.h"
 #include "fast_math.h"
 
-extern int g_draw_calls;
+#include "engine_shared.h"
 
 #ifndef PI
 #define PI 3.14159265358979323846f
@@ -64,7 +64,7 @@ void UpdateAndDrawParticles(void) {
             
             Color c = particle_pool[i].color;
             c.a = (unsigned char)(255.0f * particle_pool[i].lifetime * particle_pool[i].inv_max_lifetime);
-            DrawRectangleV(particle_pool[i].position, (Vector2){particle_pool[i].size, particle_pool[i].size}, c); g_draw_calls++;
+            DrawRectangleV(particle_pool[i].position, (Vector2){particle_pool[i].size, particle_pool[i].size}, c); ctx.g_draw_calls++;
             
             if (active_idx != i) {
                 particle_pool[active_idx] = particle_pool[i];

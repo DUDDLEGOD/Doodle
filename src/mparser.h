@@ -2,6 +2,7 @@
 #define MPARSER_H
 
 #include "raylib.h"
+#include <stdint.h>
 
 typedef enum { NODE_VIEW, NODE_TEXT, NODE_IMAGE, NODE_BUTTON, NODE_AUDIO, NODE_CIRCLE, NODE_LINE } NodeType;
 typedef enum { DIR_ROW, DIR_COLUMN } FlexDirection;
@@ -22,29 +23,29 @@ typedef struct {
     char font_path[256];
     float font_size;
     Color text_color;
-    
+
     SizingType width_type;
     float width_value;
     SizingType height_type;
     float height_value;
-    
+
     float padding_left;
     float padding_right;
     float padding_top;
     float padding_bottom;
-    
+
     float margin_left;
     float margin_right;
     float margin_top;
     float margin_bottom;
-    
+
     char justify_content[32];
     char align_items[32];
-    
+
     PositionMode position_mode;
     float left;
     float top;
-    
+
     char text_align[16];
     char shader_path[256];
     float rotation;
@@ -62,16 +63,17 @@ typedef struct UINode {
     int autoplay;
     int loop;
     int position_set;
+    uint32_t class_hashes[8]; // Max 8 classes hashed for fast lookup
 
-    StyleProps style;       
-    StyleProps hover_style; 
+    StyleProps style;
+    StyleProps hover_style;
     int has_hover_style;
     int currently_hovered;
-    
-    LayoutBox layout;       
+
+    LayoutBox layout;
 
     int use_camera;
-    
+
     float radius;
     float x2;
     float y2;
@@ -79,8 +81,9 @@ typedef struct UINode {
     Color shape_color;
 
     struct UINode* parent;
-    struct UINode* children[128];
+    struct UINode** children;
     int child_count;
+    int child_capacity;
     int line_number;
 } UINode;
 
@@ -92,12 +95,15 @@ typedef struct {
     int affects_layout;
 } CSSMap;
 
-void MarkNodeHashTableDirty(void);
+void InitDOM(void);
+void CleanupDOM(void);
 
 // Memory Management & Tree functions
 UINode* CreateNode(NodeType type);
 void FreeNode(UINode* node);
 void AddChild(UINode* parent, UINode* child);
+void AddToHashTable(UINode* node);
+void RemoveFromHashTable(const char* id);
 UINode* FindNodeById(UINode* root_node, const char* id);
 void RemoveNode(UINode* root_node, UINode* node_to_remove);
 

@@ -84,18 +84,26 @@ void handle_display(UINode* node, const char* value) {
 }
 
 void handle_padding(UINode* node, const char* value) {
-    float val1 = 0.0f, val2 = 0.0f, val3 = 0.0f, val4 = 0.0f;
-    int count = sscanf(value, "%f %f %f %f", &val1, &val2, &val3, &val4);
+    float vals[4] = {0.0f};
+    int count = 0;
+    char buf[128];
+    strncpy(buf, value, 127); buf[127] = '\0';
+    char* token = strtok(buf, " ");
+    while (token && count < 4) {
+        vals[count++] = ParseUnit(token);
+        token = strtok(NULL, " ");
+    }
+    
     if (count == 1) {
-        node->style.padding_left = node->style.padding_right = node->style.padding_top = node->style.padding_bottom = val1;
+        node->style.padding_left = node->style.padding_right = node->style.padding_top = node->style.padding_bottom = vals[0];
     } else if (count == 2) {
-        node->style.padding_top = node->style.padding_bottom = val1;
-        node->style.padding_left = node->style.padding_right = val2;
+        node->style.padding_top = node->style.padding_bottom = vals[0];
+        node->style.padding_left = node->style.padding_right = vals[1];
     } else if (count == 4) {
-        node->style.padding_top = val1;
-        node->style.padding_right = val2;
-        node->style.padding_bottom = val3;
-        node->style.padding_left = val4;
+        node->style.padding_top = vals[0];
+        node->style.padding_right = vals[1];
+        node->style.padding_bottom = vals[2];
+        node->style.padding_left = vals[3];
     }
 }
 
@@ -105,18 +113,26 @@ void handle_padding_top(UINode* node, const char* value) { node->style.padding_t
 void handle_padding_bottom(UINode* node, const char* value) { node->style.padding_bottom = ParseUnit(value); }
 
 void handle_margin(UINode* node, const char* value) {
-    float val1 = 0.0f, val2 = 0.0f, val3 = 0.0f, val4 = 0.0f;
-    int count = sscanf(value, "%f %f %f %f", &val1, &val2, &val3, &val4);
+    float vals[4] = {0.0f};
+    int count = 0;
+    char buf[128];
+    strncpy(buf, value, 127); buf[127] = '\0';
+    char* token = strtok(buf, " ");
+    while (token && count < 4) {
+        vals[count++] = ParseUnit(token);
+        token = strtok(NULL, " ");
+    }
+    
     if (count == 1) {
-        node->style.margin_left = node->style.margin_right = node->style.margin_top = node->style.margin_bottom = val1;
+        node->style.margin_left = node->style.margin_right = node->style.margin_top = node->style.margin_bottom = vals[0];
     } else if (count == 2) {
-        node->style.margin_top = node->style.margin_bottom = val1;
-        node->style.margin_left = node->style.margin_right = val2;
+        node->style.margin_top = node->style.margin_bottom = vals[0];
+        node->style.margin_left = node->style.margin_right = vals[1];
     } else if (count == 4) {
-        node->style.margin_top = val1;
-        node->style.margin_right = val2;
-        node->style.margin_bottom = val3;
-        node->style.margin_left = val4;
+        node->style.margin_top = vals[0];
+        node->style.margin_right = vals[1];
+        node->style.margin_bottom = vals[2];
+        node->style.margin_left = vals[3];
     }
 }
 
@@ -210,24 +226,16 @@ CSSMap css_registry[] = {
 };
 int css_registry_count = sizeof(css_registry) / sizeof(CSSMap);
 
-void ApplyCSSToNode(UINode* node, const char* selector, const char* prop, const char* val) {
+StyleSheet global_stylesheet = {0};
+
+static void ApplyRuleToNode(UINode* node, CSSRule* rule) {
     if (!node) return;
     int matches = 0;
 
-    int is_hover_selector = 0;
-    char base_selector[64];
-    strncpy(base_selector, selector, sizeof(base_selector) - 1);
-    base_selector[sizeof(base_selector) - 1] = '\0';
-    char* colon = strchr(base_selector, ':');
-    if (colon && strcmp(colon, ":hover") == 0) {
-        *colon = '\0';
-        is_hover_selector = 1;
-    }
-
-    if (base_selector[0] == '.') {
-        if (HasClass(node->class_name, base_selector + 1)) matches = 1;
-    } else if (base_selector[0] == '#') {
-        if (strcmp(node->id, base_selector + 1) == 0) matches = 1;
+    if (rule->is_class) {
+        if (HasClassHash(node->class_hashes, 8, rule->selector_hash)) matches = 1;
+    } else if (rule->is_id) {
+        if (strcmp(node->id, rule->selector) == 0) matches = 1;
     } else {
         const char* tag = "view";
         if (node->type == NODE_VIEW) tag = "view";
@@ -237,25 +245,25 @@ void ApplyCSSToNode(UINode* node, const char* selector, const char* prop, const 
         else if (node->type == NODE_AUDIO) tag = "audio";
         else if (node->type == NODE_CIRCLE) tag = "circle";
         else if (node->type == NODE_LINE) tag = "line";
-        if (strcmp(tag, base_selector) == 0) matches = 1;
+        if (strcmp(tag, rule->selector) == 0) matches = 1;
     }
 
     if (matches) {
         for (int i = 0; i < css_registry_count; i++) {
-            if (strcmp(css_registry[i].property_name, prop) == 0) {
-                if (is_hover_selector) {
+            if (strcmp(css_registry[i].property_name, rule->property) == 0) {
+                if (rule->is_hover) {
                     StyleProps temp = node->style;
                     node->style = node->hover_style;
-                    css_registry[i].handler(node, val);
+                    css_registry[i].handler(node, rule->value);
                     node->hover_style = node->style;
                     node->style = temp;
                     node->has_hover_style = 1;
                 } else {
-                    css_registry[i].handler(node, val);
+                    css_registry[i].handler(node, rule->value);
                     
                     StyleProps temp = node->style;
                     node->style = node->hover_style;
-                    css_registry[i].handler(node, val);
+                    css_registry[i].handler(node, rule->value);
                     node->hover_style = node->style;
                     node->style = temp;
                 }
@@ -263,13 +271,20 @@ void ApplyCSSToNode(UINode* node, const char* selector, const char* prop, const 
             }
         }
     }
+}
 
+void ApplyStyleSheetToTree(UINode* node) {
+    if (!node) return;
+    for (int i = 0; i < global_stylesheet.count; i++) {
+        ApplyRuleToNode(node, &global_stylesheet.rules[i]);
+    }
     for (int i = 0; i < node->child_count; i++) {
-        ApplyCSSToNode(node->children[i], selector, prop, val);
+        ApplyStyleSheetToTree(node->children[i]);
     }
 }
 
-void LoadAndApplyCSS(UINode* root, const char* filepath) {
+void LoadCSS(const char* filepath) {
+    global_stylesheet.count = 0;
     FILE* f = fopen(filepath, "r");
     if (!f) return;
     fseek(f, 0, SEEK_END);
@@ -337,11 +352,52 @@ void LoadAndApplyCSS(UINode* root, const char* filepath) {
             val[vi] = '\0';
             char* trimmed_val = TrimWhitespace(val);
 
-            if (strlen(selector) > 0 && strlen(prop) > 0 && strlen(trimmed_val) > 0) {
-                ApplyCSSToNode(root, selector, prop, trimmed_val);
+            if (strlen(selector) > 0 && strlen(prop) > 0 && strlen(trimmed_val) > 0 && global_stylesheet.count < MAX_CSS_RULES) {
+                CSSRule* r = &global_stylesheet.rules[global_stylesheet.count++];
+                
+                int is_hover = 0;
+                char base_selector[64];
+                strncpy(base_selector, selector, sizeof(base_selector) - 1);
+                base_selector[sizeof(base_selector) - 1] = '\0';
+                char* colon = strchr(base_selector, ':');
+                if (colon && strcmp(colon, ":hover") == 0) {
+                    *colon = '\0';
+                    is_hover = 1;
+                }
+                
+                r->is_hover = is_hover;
+                if (base_selector[0] == '.') {
+                    r->is_class = 1; r->is_id = 0;
+                    snprintf(r->selector, 64, "%.*s", 63, base_selector + 1);
+                    r->selector_hash = HashString(r->selector);
+                    r->specificity = 10;
+                } else if (base_selector[0] == '#') {
+                    r->is_class = 0; r->is_id = 1;
+                    snprintf(r->selector, 64, "%.*s", 63, base_selector + 1);
+                    r->selector_hash = HashString(r->selector);
+                    r->specificity = 100;
+                } else {
+                    r->is_class = 0; r->is_id = 0;
+                    snprintf(r->selector, 64, "%.*s", 63, base_selector);
+                    r->selector_hash = HashString(r->selector);
+                    r->specificity = 1;
+                }
+                
+                snprintf(r->property, 64, "%.*s", 63, prop);
+                snprintf(r->value, 128, "%.*s", 127, trimmed_val);
             }
         }
         if (*p == '}') p++;
+    }
+
+    for (int i = 0; i < global_stylesheet.count - 1; i++) {
+        for (int j = 0; j < global_stylesheet.count - i - 1; j++) {
+            if (global_stylesheet.rules[j].specificity > global_stylesheet.rules[j+1].specificity) {
+                CSSRule temp = global_stylesheet.rules[j];
+                global_stylesheet.rules[j] = global_stylesheet.rules[j+1];
+                global_stylesheet.rules[j+1] = temp;
+            }
+        }
     }
 
     free(buf);

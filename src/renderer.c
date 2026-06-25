@@ -7,7 +7,6 @@
 static Shader current_active_shader = {0};
 
 #define MAX_SORT_NODES 1024
-static UINode* sorted[MAX_SORT_NODES];
 
 void SetActiveShader(Shader sh) {
     if (sh.id != current_active_shader.id) {
@@ -76,34 +75,35 @@ void DrawUINode(UINode* node) {
             DrawRectangle(0, 0, arena_target.texture.width, arena_target.texture.height, active_style->bg_color);
         }
 
-        Camera2D current_cam = camera;
-        if (shake_duration > 0.0f) {
-            current_cam.offset.x += GetRandomValue(-shake_intensity, shake_intensity);
-            current_cam.offset.y += GetRandomValue(-shake_intensity, shake_intensity);
-            shake_duration -= GetFrameTime();
+        Camera2D current_cam = ctx.camera;
+        if (ctx.shake_duration > 0.0f) {
+            current_cam.offset.x += GetRandomValue(-ctx.shake_intensity, ctx.shake_intensity);
+            current_cam.offset.y += GetRandomValue(-ctx.shake_intensity, ctx.shake_intensity);
+            ctx.shake_duration -= GetFrameTime();
         }
         BeginMode2D(current_cam);
 
         if (node->child_count > 0) {
             int N = node->child_count;
             if (N > MAX_SORT_NODES) N = MAX_SORT_NODES;
+            UINode* sorted_children[MAX_SORT_NODES];
 
             for (int i = 0; i < N; i++) {
-                sorted[i] = node->children[i];
+                sorted_children[i] = node->children[i];
             }
             for (int i = 1; i < N; i++) {
-                UINode* key = sorted[i];
+                UINode* key = sorted_children[i];
                 int key_z = GetActiveZIndex(key);
                 int j = i - 1;
-                while (j >= 0 && GetActiveZIndex(sorted[j]) > key_z) {
-                    sorted[j + 1] = sorted[j];
+                while (j >= 0 && GetActiveZIndex(sorted_children[j]) > key_z) {
+                    sorted_children[j + 1] = sorted_children[j];
                     j = j - 1;
                 }
-                sorted[j + 1] = key;
+                sorted_children[j + 1] = key;
             }
 
             for (int i = 0; i < N; i++) {
-                DrawUINode(sorted[i]);
+                DrawUINode(sorted_children[i]);
             }
         }
 
@@ -122,13 +122,13 @@ void DrawUINode(UINode* node) {
 
         Rectangle src = { node->layout.x, arena_target.texture.height - node->layout.y - node->layout.height, node->layout.width, -node->layout.height };
         Rectangle dest = { node->layout.x, node->layout.y, node->layout.width, node->layout.height };
-        DrawTexturePro(arena_target.texture, src, dest, (Vector2){0,0}, 0.0f, WHITE); g_draw_calls++;
+        DrawTexturePro(arena_target.texture, src, dest, (Vector2){0,0}, 0.0f, WHITE); ctx.g_draw_calls++;
 
         SetActiveShader(prev_shader);
 
         if (active_style->border_width > 0 && active_style->border_color.a > 0) {
             Rectangle border_rec = {node->layout.x, node->layout.y, node->layout.width, node->layout.height};
-            DrawRectangleLinesEx(border_rec, active_style->border_width, active_style->border_color); g_draw_calls++;
+            DrawRectangleLinesEx(border_rec, active_style->border_width, active_style->border_color); ctx.g_draw_calls++;
         }
 
         if (node->parent == NULL) {
@@ -153,9 +153,9 @@ void DrawUINode(UINode* node) {
                 float min_dim = node->layout.width > node->layout.height ? node->layout.height : node->layout.width;
                 float roundness = min_dim > 0 ? (active_style->border_radius / min_dim) : 0.0f;
                 if (roundness > 1.0f) roundness = 1.0f;
-                DrawRectangleRounded(rec, roundness, 8, active_style->bg_color); g_draw_calls++;
+                DrawRectangleRounded(rec, roundness, 8, active_style->bg_color); ctx.g_draw_calls++;
             } else {
-                DrawRectangle(node->layout.x, node->layout.y, node->layout.width, node->layout.height, active_style->bg_color); g_draw_calls++;
+                DrawRectangle(node->layout.x, node->layout.y, node->layout.width, node->layout.height, active_style->bg_color); ctx.g_draw_calls++;
             }
         }
     } else if (node->type == NODE_TEXT || node->type == NODE_BUTTON) {
@@ -165,9 +165,9 @@ void DrawUINode(UINode* node) {
                 float min_dim = node->layout.width > node->layout.height ? node->layout.height : node->layout.width;
                 float roundness = min_dim > 0 ? (active_style->border_radius / min_dim) : 0.0f;
                 if (roundness > 1.0f) roundness = 1.0f;
-                DrawRectangleRounded(rec, roundness, 8, active_style->bg_color); g_draw_calls++;
+                DrawRectangleRounded(rec, roundness, 8, active_style->bg_color); ctx.g_draw_calls++;
             } else {
-                DrawRectangle(node->layout.x, node->layout.y, node->layout.width, node->layout.height, active_style->bg_color); g_draw_calls++;
+                DrawRectangle(node->layout.x, node->layout.y, node->layout.width, node->layout.height, active_style->bg_color); ctx.g_draw_calls++;
             }
         }
 
@@ -201,9 +201,9 @@ void DrawUINode(UINode* node) {
             }
 
             if (has_custom_font) {
-                DrawTextEx(font, text, (Vector2){draw_x, draw_y}, font_size, 1.0f, text_color); g_draw_calls++;
+                DrawTextEx(font, text, (Vector2){draw_x, draw_y}, font_size, 1.0f, text_color); ctx.g_draw_calls++;
             } else {
-                DrawText(text, (int)draw_x, (int)draw_y, (int)font_size, text_color); g_draw_calls++;
+                DrawText(text, (int)draw_x, (int)draw_y, (int)font_size, text_color); ctx.g_draw_calls++;
             }
         }
     } else if (node->type == NODE_IMAGE) {
@@ -219,15 +219,15 @@ void DrawUINode(UINode* node) {
                 };
                 Vector2 origin = {node->layout.width / 2.0f, node->layout.height / 2.0f};
                 Color tint = (active_style->tint_color.a > 0) ? active_style->tint_color : WHITE;
-                DrawTexturePro(tex, src, dest, origin, active_style->rotation, tint); g_draw_calls++;
+                DrawTexturePro(tex, src, dest, origin, active_style->rotation, tint); ctx.g_draw_calls++;
             }
         }
     } else if (node->type == NODE_CIRCLE) {
         float r = node->radius;
         if (r <= 0) r = node->layout.width / 2.0f;
-        DrawCircle(node->layout.x + r, node->layout.y + r, r, node->shape_color); g_draw_calls++;
+        DrawCircle(node->layout.x + r, node->layout.y + r, r, node->shape_color); ctx.g_draw_calls++;
     } else if (node->type == NODE_LINE) {
-        DrawLineEx((Vector2){node->layout.x, node->layout.y}, (Vector2){node->layout.x + node->x2, node->layout.y + node->y2}, node->thickness, node->shape_color); g_draw_calls++;
+        DrawLineEx((Vector2){node->layout.x, node->layout.y}, (Vector2){node->layout.x + node->x2, node->layout.y + node->y2}, node->thickness, node->shape_color); ctx.g_draw_calls++;
     }
 
     // Border drawing
@@ -237,32 +237,33 @@ void DrawUINode(UINode* node) {
             float min_dim = node->layout.width > node->layout.height ? node->layout.height : node->layout.width;
             float roundness = min_dim > 0 ? (active_style->border_radius / min_dim) : 0.0f;
             if (roundness > 1.0f) roundness = 1.0f;
-            DrawRectangleRoundedLines(rec, roundness, 8, active_style->border_width, active_style->border_color); g_draw_calls++;
+            DrawRectangleRoundedLines(rec, roundness, 8, active_style->border_width, active_style->border_color); ctx.g_draw_calls++;
         } else {
-            DrawRectangleLinesEx(rec, active_style->border_width, active_style->border_color); g_draw_calls++;
+            DrawRectangleLinesEx(rec, active_style->border_width, active_style->border_color); ctx.g_draw_calls++;
         }
     }
 
     if (node->child_count > 0) {
         int N = node->child_count;
             if (N > MAX_SORT_NODES) N = MAX_SORT_NODES;
+            UINode* sorted_children[MAX_SORT_NODES];
 
             for (int i = 0; i < N; i++) {
-                sorted[i] = node->children[i];
+                sorted_children[i] = node->children[i];
             }
             for (int i = 1; i < N; i++) {
-                UINode* key = sorted[i];
+                UINode* key = sorted_children[i];
                 int key_z = GetActiveZIndex(key);
                 int j = i - 1;
-                while (j >= 0 && GetActiveZIndex(sorted[j]) > key_z) {
-                    sorted[j + 1] = sorted[j];
+                while (j >= 0 && GetActiveZIndex(sorted_children[j]) > key_z) {
+                    sorted_children[j + 1] = sorted_children[j];
                     j = j - 1;
                 }
-                sorted[j + 1] = key;
+                sorted_children[j + 1] = key;
             }
 
             for (int i = 0; i < N; i++) {
-                DrawUINode(sorted[i]);
+                DrawUINode(sorted_children[i]);
             }
     }
 

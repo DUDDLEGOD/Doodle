@@ -3,6 +3,7 @@
 #include "unit.h"
 #include "string_utils.h"
 #include "dom_utils.h"
+#include "css_parser.h"
 #include <string.h>
 #include <stdlib.h>
 #include <stdio.h>
@@ -15,8 +16,41 @@ static int GetLineNumber(const char* buf, const char* p) {
     return line;
 }
 
+static void SkipWhitespace(char** p) {
+    while (**p && (**p == ' ' || **p == '\t' || **p == '\r' || **p == '\n')) (*p)++;
+}
+
+static void ReadIdentifier(char** p, char* out, int max_len) {
+    int i = 0;
+    while (**p && **p != '=' && **p != '>' && **p != '/' && **p != ' ' && **p != '\t' && **p != '\r' && **p != '\n') {
+        if (i < max_len - 1) out[i++] = **p;
+        (*p)++;
+    }
+    out[i] = '\0';
+}
+
+static void ReadStringLiteral(char** p, char* out, int max_len) {
+    int i = 0;
+    char quote = **p;
+    if (quote == '"' || quote == '\'') {
+        (*p)++;
+        while (**p && **p != quote) {
+            if (i < max_len - 1) out[i++] = **p;
+            (*p)++;
+        }
+        if (**p == quote) (*p)++;
+    } else {
+        while (**p && **p != ' ' && **p != '\t' && **p != '>' && **p != '/') {
+            if (i < max_len - 1) out[i++] = **p;
+            (*p)++;
+        }
+    }
+    out[i] = '\0';
+}
+
 UINode* ParseHTML(const char* filepath) {
-    FILE* f = fopen(filepath, "r");
+    InitDOM();
+    FILE* f = fopen(filepath, "rb");
     if (!f) return NULL;
     fseek(f, 0, SEEK_END);
     long size = ftell(f);
@@ -36,7 +70,7 @@ UINode* ParseHTML(const char* filepath) {
 
     char* p = buf;
     while (*p) {
-        while (*p && (*p == ' ' || *p == '\t' || *p == '\r' || *p == '\n')) p++;
+        SkipWhitespace(&p);
         if (!*p) break;
 
         if (*p == '<') {
@@ -46,9 +80,7 @@ UINode* ParseHTML(const char* filepath) {
                 if (strncmp(p, "--", 2) == 0) {
                     p += 2;
                     char* end_comment = strstr(p, "-->");
-                    if (end_comment) {
-                        p = end_comment + 3;
-                    }
+                    if (end_comment) p = end_comment + 3;
                 }
                 continue;
             }
@@ -56,20 +88,12 @@ UINode* ParseHTML(const char* filepath) {
                 p++;
                 while (*p && *p != '>') p++;
                 if (*p == '>') p++;
-
-                if (stack_top >= 0) {
-                    stack_top--;
-                }
+                if (stack_top >= 0) stack_top--;
                 continue;
             }
 
             char tagname[64];
-            int i = 0;
-            while (*p && *p != '>' && *p != '/' && *p != ' ' && *p != '\t' && *p != '\r' && *p != '\n') {
-                if (i < 63) tagname[i++] = *p;
-                p++;
-            }
-            tagname[i] = '\0';
+            ReadIdentifier(&p, tagname, 64);
 
             NodeType type = NODE_VIEW;
             if (strcmp(tagname, "view") == 0) type = NODE_VIEW;
@@ -86,7 +110,7 @@ UINode* ParseHTML(const char* filepath) {
 
             int self_closing = 0;
             while (*p) {
-                while (*p && (*p == ' ' || *p == '\t' || *p == '\r' || *p == '\n')) p++;
+                SkipWhitespace(&p);
                 if (*p == '>') {
                     p++;
                     break;
@@ -99,33 +123,22 @@ UINode* ParseHTML(const char* filepath) {
                 if (!*p) break;
 
                 char attr_name[64];
-                int ai = 0;
-                while (*p && *p != '=' && *p != '>' && *p != '/' && *p != ' ' && *p != '\t' && *p != '\r' && *p != '\n') {
-                    if (ai < 63) attr_name[ai++] = *p;
-                    p++;
-                }
-                attr_name[ai] = '\0';
+                ReadIdentifier(&p, attr_name, 64);
 
                 char attr_val[512] = {0};
-                while (*p && (*p == ' ' || *p == '\t')) p++;
+                SkipWhitespace(&p);
                 if (*p == '=') {
                     p++;
-                    while (*p && (*p == ' ' || *p == '\t' || *p == '\"' || *p == '\'')) p++;
-                    int vi = 0;
-                    while (*p && *p != '\"' && *p != '\'') {
-                        if (vi < 511) attr_val[vi++] = *p;
-                        p++;
-                    }
-                    attr_val[vi] = '\0';
-                    if (*p == '\"' || *p == '\'') p++;
+                    SkipWhitespace(&p);
+                    ReadStringLiteral(&p, attr_val, 512);
                 }
 
                 if (strcmp(attr_name, "id") == 0) {
                     strncpy(node->id, attr_val, sizeof(node->id) - 1);
                     node->id[sizeof(node->id) - 1] = '\0';
+                    AddToHashTable(node);
                 } else if (strcmp(attr_name, "class") == 0) {
-                    strncpy(node->class_name, attr_val, sizeof(node->class_name) - 1);
-                    node->class_name[sizeof(node->class_name) - 1] = '\0';
+                    ParseClassHashes(attr_val, node->class_hashes, 8);
                 } else if (strcmp(attr_name, "src") == 0) {
                     strncpy(node->asset_path, attr_val, sizeof(node->asset_path) - 1);
                     node->asset_path[sizeof(node->asset_path) - 1] = '\0';
@@ -134,9 +147,7 @@ UINode* ParseHTML(const char* filepath) {
                 } else if (strcmp(attr_name, "loop") == 0) {
                     node->loop = 1;
                 } else if (strcmp(attr_name, "camera") == 0) {
-                    if (strcmp(attr_val, "true") == 0) {
-                        node->use_camera = 1;
-                    }
+                    if (strcmp(attr_val, "true") == 0) node->use_camera = 1;
                 } else if (strcmp(attr_name, "radius") == 0) {
                     node->radius = ParseUnit(attr_val);
                 } else if (strcmp(attr_name, "x2") == 0) {
@@ -148,6 +159,7 @@ UINode* ParseHTML(const char* filepath) {
                 } else if (strcmp(attr_name, "color") == 0) {
                     node->shape_color = ParseColor(attr_val);
                 } else if (strcmp(attr_name, "style") == 0) {
+                    // Inline styles bypass global stylesheet and apply directly
                     char* s_ptr = attr_val;
                     while (*s_ptr) {
                         while (*s_ptr && (*s_ptr == ' ' || *s_ptr == '\t' || *s_ptr == ';')) s_ptr++;
@@ -173,7 +185,6 @@ UINode* ParseHTML(const char* filepath) {
                             for (int k = 0; k < css_registry_count; k++) {
                                 if (strcmp(css_registry[k].property_name, trimmed_name) == 0) {
                                     css_registry[k].handler(node, trimmed_val);
-                                    
                                     StyleProps temp = node->style;
                                     node->style = node->hover_style;
                                     css_registry[k].handler(node, trimmed_val);

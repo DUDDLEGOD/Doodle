@@ -20,7 +20,7 @@ typedef struct {
     float border_radius;
     float opacity;
     FlexDirection flex_direction;
-    char font_path[256];
+    const char* font_path;
     float font_size;
     Color text_color;
 
@@ -39,26 +39,26 @@ typedef struct {
     float margin_top;
     float margin_bottom;
 
-    char justify_content[32];
-    char align_items[32];
+    const char* justify_content;
+    const char* align_items;
 
     PositionMode position_mode;
     float left;
     float top;
 
-    char text_align[16];
-    char shader_path[256];
+    const char* text_align;
+    const char* shader_path;
     float rotation;
     Color tint_color;
     int z_index;
 } StyleProps;
 
 typedef struct UINode {
-    char id[64];
-    char class_name[64];
+    const char* id;
+    const char* class_name;
     NodeType type;
-    char text_content[512];
-    char asset_path[256];
+    const char* text_content;
+    const char* asset_path;
     int visible;
     int autoplay;
     int loop;
@@ -94,6 +94,9 @@ typedef struct {
     CSSPropertyHandler handler;
     int affects_layout;
 } CSSMap;
+
+void* DOMAlloc(size_t size, size_t alignment);
+const char* DOMStrDup(const char* str);
 
 void InitDOM(void);
 void CleanupDOM(void);

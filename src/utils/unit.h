@@ -1,12 +1,14 @@
-#include "unit.h"
+#ifndef UNIT_H
+#define UNIT_H
+
 #include <stdlib.h>
 
-float ParseUnit(const char* unitStr) {
+static inline float ParseUnit(const char* unitStr) {
     if (!unitStr) return 0.0f;
     return (float)atof(unitStr);
 }
 
-float ParseUnitExt(const char* unitStr, int* isPercent) {
+static inline float ParseUnitExt(const char* unitStr, int* isPercent) {
     if (!unitStr) {
         if (isPercent) *isPercent = 0;
         return 0.0f;
@@ -31,3 +33,5 @@ float ParseUnitExt(const char* unitStr, int* isPercent) {
     }
     return val;
 }
+
+#endif // UNIT_H

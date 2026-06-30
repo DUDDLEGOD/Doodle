@@ -16,12 +16,19 @@ void main()
     // Fetch texture color
     vec4 texel = texture(texture0, fragTexCoord);
     
-    // Add subtle scanlines based on screen Y coordinates
-    float scanline = sin(fragTexCoord.y * 600.0) * 0.15;
+    // Add scanlines based on screen Y coordinates
+    float scanline = sin(fragTexCoord.y * 800.0) * 0.08;
     
     // Slight vignette effect
     vec2 uv = fragTexCoord - 0.5;
-    float vignette = 1.0 - dot(uv, uv) * 0.4;
+    float vignette = 1.0 - dot(uv, uv) * 0.5;
     
-    finalColor = (texel - vec4(scanline, scanline, scanline, 0.0)) * vignette;
+    // Apply chromatic aberration
+    float amount = 0.002;
+    float r = texture(texture0, fragTexCoord + vec2(amount, 0.0)).r;
+    float g = texel.g;
+    float b = texture(texture0, fragTexCoord - vec2(amount, 0.0)).b;
+    vec4 chromatic = vec4(r, g, b, texel.a);
+    
+    finalColor = (chromatic - vec4(scanline, scanline, scanline, 0.0)) * vignette * colDiffuse;
 }

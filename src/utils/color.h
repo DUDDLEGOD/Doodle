@@ -1,4 +1,7 @@
-#include "color.h"
+#ifndef COLOR_H
+#define COLOR_H
+
+#include "raylib.h"
 #include <string.h>
 #include <stdio.h>
 
@@ -9,7 +12,7 @@ static inline int HexVal(char c) {
     return -1;
 }
 
-Color ParseColor(const char* hexOrRgba) {
+static inline Color ParseColor(const char* hexOrRgba) {
     if (!hexOrRgba) return BLANK;
     
     if (hexOrRgba[0] == '#') {
@@ -67,3 +70,5 @@ Color ParseColor(const char* hexOrRgba) {
     }
     return BLANK;
 }
+
+#endif // COLOR_H

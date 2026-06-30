@@ -58,87 +58,136 @@ void DrawUINode(UINode* node) {
     }
 
     if (node->use_camera) {
-        static RenderTexture2D arena_target;
-        static int arena_target_created = 0;
-        if (!arena_target_created) {
-            arena_target = LoadRenderTexture(800, 600);
-            arena_target_created = 1;
-        }
-
-        Shader prev_shader = current_active_shader;
-        SetActiveShader((Shader){0});
-
-        BeginTextureMode(arena_target);
-        ClearBackground(BLACK);
-
-        if (active_style->bg_color.a > 0) {
-            DrawRectangle(0, 0, arena_target.texture.width, arena_target.texture.height, active_style->bg_color);
-        }
-
-        Camera2D current_cam = ctx.camera;
-        if (ctx.shake_duration > 0.0f) {
-            current_cam.offset.x += GetRandomValue(-ctx.shake_intensity, ctx.shake_intensity);
-            current_cam.offset.y += GetRandomValue(-ctx.shake_intensity, ctx.shake_intensity);
-            ctx.shake_duration -= GetFrameTime();
-        }
-        BeginMode2D(current_cam);
-
-        if (node->child_count > 0) {
-            int N = node->child_count;
-            if (N > MAX_SORT_NODES) N = MAX_SORT_NODES;
-            UINode* sorted_children[MAX_SORT_NODES];
-
-            for (int i = 0; i < N; i++) {
-                sorted_children[i] = node->children[i];
-            }
-            for (int i = 1; i < N; i++) {
-                UINode* key = sorted_children[i];
-                int key_z = GetActiveZIndex(key);
-                int j = i - 1;
-                while (j >= 0 && GetActiveZIndex(sorted_children[j]) > key_z) {
-                    sorted_children[j + 1] = sorted_children[j];
-                    j = j - 1;
-                }
-                sorted_children[j + 1] = key;
-            }
-
-            for (int i = 0; i < N; i++) {
-                DrawUINode(sorted_children[i]);
-            }
-        }
-
-        UpdateAndDrawParticles();
-
-        EndMode2D();
-        EndTextureMode();
-
-        int has_shader = (strlen(active_style->shader_path) > 0);
+        int has_shader = (active_style->shader_path && active_style->shader_path[0] != '\0');
         if (has_shader) {
+            static RenderTexture2D arena_target;
+            static int arena_target_created = 0;
+            static int arena_tex_w = 0, arena_tex_h = 0;
+
+            int cur_w = (int)node->layout.width;
+            int cur_h = (int)node->layout.height;
+            if (cur_w < 1) cur_w = 800;
+            if (cur_h < 1) cur_h = 600;
+
+            if (!arena_target_created || cur_w != arena_tex_w || cur_h != arena_tex_h) {
+                if (arena_target_created) UnloadRenderTexture(arena_target);
+                arena_target = LoadRenderTexture(cur_w, cur_h);
+                arena_tex_w = cur_w;
+                arena_tex_h = cur_h;
+                arena_target_created = 1;
+            }
+
+            Shader prev_shader = current_active_shader;
+            SetActiveShader((Shader){0});
+
+            BeginTextureMode(arena_target);
+            ClearBackground(BLACK);
+
+            if (active_style->bg_color.a > 0) {
+                DrawRectangle(0, 0, cur_w, cur_h, active_style->bg_color);
+            }
+
+            Camera2D current_cam = ctx.camera;
+            current_cam.target = (Vector2){ node->layout.x, node->layout.y };
+            current_cam.offset = (Vector2){ 0.0f, 0.0f };
+            current_cam.zoom = 1.0f;
+            if (ctx.shake_duration > 0.0f) {
+                current_cam.offset.x += GetRandomValue(-ctx.shake_intensity, ctx.shake_intensity);
+                current_cam.offset.y += GetRandomValue(-ctx.shake_intensity, ctx.shake_intensity);
+                ctx.shake_duration -= GetFrameTime();
+            }
+            BeginMode2D(current_cam);
+
+            if (node->child_count > 0) {
+                int N = node->child_count;
+                if (N > MAX_SORT_NODES) N = MAX_SORT_NODES;
+                UINode* sorted_children[MAX_SORT_NODES];
+                for (int i = 0; i < N; i++) sorted_children[i] = node->children[i];
+                for (int i = 1; i < N; i++) {
+                    UINode* key = sorted_children[i];
+                    int key_z = GetActiveZIndex(key);
+                    int j = i - 1;
+                    while (j >= 0 && GetActiveZIndex(sorted_children[j]) > key_z) {
+                        sorted_children[j + 1] = sorted_children[j];
+                        j = j - 1;
+                    }
+                    sorted_children[j + 1] = key;
+                }
+                for (int i = 0; i < N; i++) DrawUINode(sorted_children[i]);
+            }
+
+            UpdateAndDrawParticles();
+
+            EndMode2D();
+            EndTextureMode();
+
             Shader sh = GetCachedShader(active_style->shader_path);
             if (sh.id > 0) {
                 SetActiveShader(sh);
             }
-        }
 
-        Rectangle src = { node->layout.x, arena_target.texture.height - node->layout.y - node->layout.height, node->layout.width, -node->layout.height };
-        Rectangle dest = { node->layout.x, node->layout.y, node->layout.width, node->layout.height };
-        DrawTexturePro(arena_target.texture, src, dest, (Vector2){0,0}, 0.0f, WHITE); ctx.g_draw_calls++;
+            Rectangle src = { 0, 0, (float)arena_target.texture.width, -(float)arena_target.texture.height };
+            Rectangle dest = { node->layout.x, node->layout.y, node->layout.width, node->layout.height };
+            DrawTexturePro(arena_target.texture, src, dest, (Vector2){0,0}, 0.0f, WHITE); ctx.g_draw_calls++;
 
-        SetActiveShader(prev_shader);
+            SetActiveShader(prev_shader);
 
-        if (active_style->border_width > 0 && active_style->border_color.a > 0) {
-            Rectangle border_rec = {node->layout.x, node->layout.y, node->layout.width, node->layout.height};
-            DrawRectangleLinesEx(border_rec, active_style->border_width, active_style->border_color); ctx.g_draw_calls++;
-        }
+            if (active_style->border_width > 0 && active_style->border_color.a > 0) {
+                Rectangle border_rec = {node->layout.x, node->layout.y, node->layout.width, node->layout.height};
+                DrawRectangleLinesEx(border_rec, active_style->border_width, active_style->border_color); ctx.g_draw_calls++;
+            }
 
-        if (node->parent == NULL) {
-            SetActiveShader((Shader){0});
+            if (node->parent == NULL) {
+                SetActiveShader((Shader){0});
+            }
+        } else {
+            Camera2D current_cam = ctx.camera;
+            current_cam.target = (Vector2){ node->layout.x, node->layout.y };
+            current_cam.offset = (Vector2){ node->layout.x, node->layout.y };
+            current_cam.zoom = 1.0f;
+            if (ctx.shake_duration > 0.0f) {
+                current_cam.offset.x += GetRandomValue(-ctx.shake_intensity, ctx.shake_intensity);
+                current_cam.offset.y += GetRandomValue(-ctx.shake_intensity, ctx.shake_intensity);
+                ctx.shake_duration -= GetFrameTime();
+            }
+            BeginMode2D(current_cam);
+
+            if (active_style->bg_color.a > 0) {
+                DrawRectangle(node->layout.x, node->layout.y, node->layout.width, node->layout.height, active_style->bg_color);
+            }
+
+            if (node->child_count > 0) {
+                int N = node->child_count;
+                if (N > MAX_SORT_NODES) N = MAX_SORT_NODES;
+                UINode* sorted_children[MAX_SORT_NODES];
+                for (int i = 0; i < N; i++) sorted_children[i] = node->children[i];
+                for (int i = 1; i < N; i++) {
+                    UINode* key = sorted_children[i];
+                    int key_z = GetActiveZIndex(key);
+                    int j = i - 1;
+                    while (j >= 0 && GetActiveZIndex(sorted_children[j]) > key_z) {
+                        sorted_children[j + 1] = sorted_children[j];
+                        j = j - 1;
+                    }
+                    sorted_children[j + 1] = key;
+                }
+                for (int i = 0; i < N; i++) DrawUINode(sorted_children[i]);
+            }
+
+            UpdateAndDrawParticles();
+
+            EndMode2D();
+
+            if (active_style->border_width > 0 && active_style->border_color.a > 0) {
+                Rectangle border_rec = {node->layout.x, node->layout.y, node->layout.width, node->layout.height};
+                DrawRectangleLinesEx(border_rec, active_style->border_width, active_style->border_color); ctx.g_draw_calls++;
+            }
         }
         return;
     }
 
     Shader prev_shader = current_active_shader;
-    int has_shader = (strlen(active_style->shader_path) > 0);
+    int has_shader = (active_style->shader_path && active_style->shader_path[0] != '\0');
     if (has_shader) {
         Shader sh = GetCachedShader(active_style->shader_path);
         if (sh.id > 0) {
@@ -172,12 +221,12 @@ void DrawUINode(UINode* node) {
         }
 
         const char* text = node->text_content;
-        if (strlen(text) > 0) {
+        if (text && text[0] != '\0') {
             float font_size = active_style->font_size;
             Color text_color = active_style->text_color;
             Font font = GetFontDefault();
             int has_custom_font = 0;
-            if (strlen(active_style->font_path) > 0) {
+            if (active_style->font_path && active_style->font_path[0] != '\0') {
                 font = GetCachedFont(active_style->font_path);
                 if (font.texture.id > 0) has_custom_font = 1;
             }
@@ -207,7 +256,7 @@ void DrawUINode(UINode* node) {
             }
         }
     } else if (node->type == NODE_IMAGE) {
-        if (strlen(node->asset_path) > 0) {
+        if (node->asset_path && node->asset_path[0] != '\0') {
             Texture2D tex = GetCachedTexture(node->asset_path);
             if (tex.id > 0) {
                 Rectangle src = {0, 0, (float)tex.width, (float)tex.height};

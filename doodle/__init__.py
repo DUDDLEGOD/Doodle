@@ -289,10 +289,15 @@ def registerTickCallback(callback: Callable[[], None]) -> None:
 
 register_tick_callback = registerTickCallback  # Backward compatibility alias
 
+_last_rendered_templates: Dict[str, str] = {}
+
 def _update_templates(state: Dict[str, Any]) -> None:
     for node_id, format_str in _templates.items():
         try:
-            _doodle.updateText(node_id, format_str.format(**state))
+            formatted = format_str.format(**state)
+            if _last_rendered_templates.get(node_id) != formatted:
+                _doodle.updateText(node_id, formatted)
+                _last_rendered_templates[node_id] = formatted
         except Exception:
             pass
 
@@ -360,12 +365,18 @@ def run(layout: str = "layout.html", style: str = "styles.css", width: int = 800
     _rebuild_event_nodes()
 
     last_time = time.perf_counter()
+    frame_count = 0
     
     def wrapper_tick() -> None:
-        nonlocal last_time
+        nonlocal last_time, frame_count
         now = time.perf_counter()
         dt = now - last_time
         last_time = now
+        
+        frame_count += 1
+        if frame_count % 300 == 0:
+            import gc
+            gc.collect()
         
         _update_tweens(dt)
         

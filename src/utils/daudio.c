@@ -72,7 +72,7 @@ void AudioSynthCallback(void *buffer, unsigned int frames) {
 
             switch (voices[i].wave_type) {
                 case WAVE_SINE:
-                    val = fast_sin_range(p - PI);
+                    val = fast_sin(p);
                     break;
                 case WAVE_SQUARE:
                     val = (p < PI) ? 1.0f : -1.0f;

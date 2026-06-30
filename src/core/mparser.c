@@ -1,4 +1,5 @@
 #include "mparser.h"
+#include "arena.h"
 #include <string.h>
 #include <stdlib.h>
 #include <stdio.h>
@@ -48,32 +49,44 @@ void RemoveFromHashTable(const char* id) {
     }
 }
 
+static MemoryArena dom_arena = {0};
+
+void* DOMAlloc(size_t size, size_t alignment) {
+    return ArenaAlloc(&dom_arena, size, alignment);
+}
+
+const char* DOMStrDup(const char* str) {
+    return ArenaStrDup(&dom_arena, str);
+}
+
 void InitDOM(void) {
+    if (!dom_arena.buffer) {
+        ArenaInit(&dom_arena, 512 * 1024); // 512 KB arena
+    } else {
+        ArenaReset(&dom_arena);
+    }
     memset(node_hash_table, 0, sizeof(node_hash_table));
     g_node_id_counter = 0;
 }
 
-#define NODE_POOL_MAX 8192
-static UINode* node_pool[NODE_POOL_MAX];
-static int node_pool_count = 0;
-
 void CleanupDOM(void) {
-    // Only used on hard resets if we tracked all roots, but usually Python garbage collects via RemoveNode
-    InitDOM();
+    ArenaFree(&dom_arena);
+    memset(node_hash_table, 0, sizeof(node_hash_table));
+    g_node_id_counter = 0;
 }
 
 UINode* CreateNode(NodeType type) {
-    UINode* node = NULL;
-    if (node_pool_count > 0) {
-        node = node_pool[--node_pool_count];
-        memset(node, 0, sizeof(UINode));
-    } else {
-        node = (UINode*)calloc(1, sizeof(UINode));
-    }
+    UINode* node = (UINode*)ArenaAlloc(&dom_arena, sizeof(UINode), 8);
     if (!node) return NULL;
+    memset(node, 0, sizeof(UINode));
     
     node->type = type;
-    sprintf(node->id, "__node_%d", ++g_node_id_counter);
+    char temp_id[64];
+    sprintf(temp_id, "__node_%d", ++g_node_id_counter);
+    node->id = DOMStrDup(temp_id);
+    node->class_name = "";
+    node->text_content = "";
+    node->asset_path = "";
     AddToHashTable(node);
     
     // Style defaults
@@ -92,6 +105,12 @@ UINode* CreateNode(NodeType type) {
     node->style.tint_color = BLANK;
     node->style.z_index = 0;
     
+    node->style.font_path = "";
+    node->style.justify_content = "";
+    node->style.align_items = "";
+    node->style.text_align = "";
+    node->style.shader_path = "";
+    
     node->hover_style = node->style;
     node->visible = 1;
     node->autoplay = 0;
@@ -106,23 +125,13 @@ UINode* CreateNode(NodeType type) {
 
 void FreeNode(UINode* node) {
     if (!node) return;
+    RemoveFromHashTable(node->id);
     for (int i = 0; i < node->child_count; i++) {
         FreeNode(node->children[i]);
     }
-    if (node->children) {
-        free(node->children);
-        node->children = NULL;
-    }
     node->child_count = 0;
     node->child_capacity = 0;
-    
-    RemoveFromHashTable(node->id);
-    
-    if (node_pool_count < NODE_POOL_MAX) {
-        node_pool[node_pool_count++] = node;
-    } else {
-        free(node);
-    }
+    node->children = NULL;
 }
 
 void AddChild(UINode* parent, UINode* child) {
@@ -130,8 +139,11 @@ void AddChild(UINode* parent, UINode* child) {
     
     if (parent->child_count >= parent->child_capacity) {
         int new_cap = parent->child_capacity == 0 ? 8 : parent->child_capacity * 2;
-        UINode** new_children = (UINode**)realloc(parent->children, new_cap * sizeof(UINode*));
+        UINode** new_children = (UINode**)ArenaAlloc(&dom_arena, new_cap * sizeof(UINode*), 8);
         if (!new_children) return;
+        if (parent->children && parent->child_count > 0) {
+            memcpy(new_children, parent->children, parent->child_count * sizeof(UINode*));
+        }
         parent->children = new_children;
         parent->child_capacity = new_cap;
     }

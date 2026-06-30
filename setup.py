@@ -28,11 +28,15 @@ class my_build_ext(build_ext):
             self.compiler = 'mingw32'
 
 
-include_dirs = ['src']
+include_dirs = ['src/core', 'src/utils']
 library_dirs = []
 libraries = []
 extra_compile_args = ['-std=c99', '-O3', '-ffast-math', '-msse3']
 extra_link_args = []
+
+if not sys.platform == 'win32' or FORCE_MINGW:
+    extra_compile_args.extend(['-ffunction-sections', '-fdata-sections'])
+    extra_link_args.extend(['-Wl,--gc-sections'])
 
 if sys.platform.startswith('linux'):
     include_dirs.append('/usr/local/include')
@@ -85,10 +89,9 @@ elif sys.platform == 'win32':
 doodle_module = Extension(
     'doodle._doodle',
     sources=[
-        'src/expose_raylib.c', 'src/mparser.c', 'src/dutils.c', 'src/daudio.c',
-        'src/color.c', 'src/unit.c', 'src/string_utils.c', 'src/dom_utils.c',
-        'src/html_parser.c', 'src/css_parser.c', 'src/layout.c', 'src/renderer.c',
-        'src/particles.c', 'src/cache.c', 'src/profiler.c'
+        'src/core/expose_raylib.c', 'src/core/mparser.c', 'src/utils/daudio.c',
+        'src/core/html_parser.c', 'src/core/css_parser.c', 'src/core/layout.c', 'src/core/renderer.c',
+        'src/utils/particles.c', 'src/utils/cache.c'
     ],
     include_dirs=include_dirs,
     library_dirs=library_dirs,

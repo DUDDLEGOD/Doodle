@@ -1,12 +1,11 @@
-<view class="stage">
+<view class="container">
     <view class="hud">
         <text id="score-text">SCORE: {{ score }}</text>
         <text id="lives-text">LIVES: {{ lives }}</text>
     </view>
-
-    <view class="game-space" id="arena" camera="true">
-        <!-- 4 rows of bricks, 8 bricks per row -->
-        <view class="brick-row" id="row-1">
+    
+    <view id="arena" class="arena" camera="true">
+        <view class="brick-row">
             <view id="b11" class="brick row1"></view>
             <view id="b12" class="brick row1"></view>
             <view id="b13" class="brick row1"></view>
@@ -16,7 +15,7 @@
             <view id="b17" class="brick row1"></view>
             <view id="b18" class="brick row1"></view>
         </view>
-        <view class="brick-row" id="row-2">
+        <view class="brick-row">
             <view id="b21" class="brick row2"></view>
             <view id="b22" class="brick row2"></view>
             <view id="b23" class="brick row2"></view>
@@ -26,7 +25,7 @@
             <view id="b27" class="brick row2"></view>
             <view id="b28" class="brick row2"></view>
         </view>
-        <view class="brick-row" id="row-3">
+        <view class="brick-row">
             <view id="b31" class="brick row3"></view>
             <view id="b32" class="brick row3"></view>
             <view id="b33" class="brick row3"></view>
@@ -36,7 +35,7 @@
             <view id="b37" class="brick row3"></view>
             <view id="b38" class="brick row3"></view>
         </view>
-        <view class="brick-row" id="row-4">
+        <view class="brick-row">
             <view id="b41" class="brick row4"></view>
             <view id="b42" class="brick row4"></view>
             <view id="b43" class="brick row4"></view>
@@ -47,12 +46,18 @@
             <view id="b48" class="brick row4"></view>
         </view>
 
-        <circle id="ball" class="ball-entity" radius="8" color="#00ffcc" />
-        <view id="paddle" class="paddle-entity"></view>
+        <circle id="ball" class="ball" radius="10" color="#f8fafc"></circle>
+        <view id="paddle" class="paddle"></view>
+    </view>
 
-        <view id="game-over-screen" class="game-over-modal">
-            <text id="game-over-text">GAME OVER</text>
-            <button id="restart-btn" class="btn" onclick="restart_game">RESTART GAME</button>
-        </view>
+    <!-- UI Overlays -->
+    <view id="game-over" class="modal">
+        <text id="game-over-text">GAME OVER</text>
+        <button id="restart-btn" class="btn" onclick="restart">TRY AGAIN</button>
+    </view>
+
+    <view id="victory-screen" class="modal">
+        <text id="victory-text">YOU WIN!</text>
+        <button id="restart-btn-2" class="btn" onclick="restart">PLAY AGAIN</button>
     </view>
 </view>

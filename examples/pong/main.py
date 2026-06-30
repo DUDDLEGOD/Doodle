@@ -133,7 +133,7 @@ def tick():
         ball_dy = hit_offset * BALL_SPEED
         doodle.playSynth(330.0, 0.06, doodle.WAVE_SQUARE, 0.005, 0.02, 0.4, 0.02)
         doodle.shakeCamera(3.0, 0.1)
-        doodle.spawnParticles(new_bx + 14, new_by + 10, 10, "#38bdf8", 2.5, 0.3)
+        doodle.spawnParticles(new_bx, new_by + hit_offset*50, 10, "#38bdf8", 2.5, 0.3)
 
     if doodle.checkCollision("ball", "p2-paddle"):
         ball_dx = -abs(ball_dx)

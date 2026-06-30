@@ -1,7 +1,10 @@
-#include "dom_utils.h"
+#ifndef DOM_UTILS_H
+#define DOM_UTILS_H
+
+#include <stdint.h>
 #include <string.h>
 
-int HasClass(const char* class_list, const char* cls) {
+static inline int HasClass(const char* class_list, const char* cls) {
     if (!class_list || !cls) return 0;
     const char* p = class_list;
     int len = strlen(cls);
@@ -17,7 +20,7 @@ int HasClass(const char* class_list, const char* cls) {
     return 0;
 }
 
-uint32_t HashString(const char* str) {
+static inline uint32_t HashString(const char* str) {
     uint32_t hash = 5381;
     int c;
     while ((c = (unsigned char)*str++)) {
@@ -26,7 +29,7 @@ uint32_t HashString(const char* str) {
     return hash;
 }
 
-void ParseClassHashes(const char* class_list, uint32_t* hashes, int max_hashes) {
+static inline void ParseClassHashes(const char* class_list, uint32_t* hashes, int max_hashes) {
     for (int i = 0; i < max_hashes; i++) hashes[i] = 0;
     if (!class_list) return;
     
@@ -42,7 +45,7 @@ void ParseClassHashes(const char* class_list, uint32_t* hashes, int max_hashes) 
     }
 }
 
-int HasClassHash(uint32_t* hashes, int max_hashes, uint32_t target_hash) {
+static inline int HasClassHash(uint32_t* hashes, int max_hashes, uint32_t target_hash) {
     if (target_hash == 0) return 0;
     for (int i = 0; i < max_hashes; i++) {
         if (hashes[i] == target_hash) return 1;
@@ -50,3 +53,5 @@ int HasClassHash(uint32_t* hashes, int max_hashes, uint32_t target_hash) {
     }
     return 0;
 }
+
+#endif // DOM_UTILS_H

@@ -182,6 +182,24 @@ While your app is running, edit `layout.html` or `styles.css` and save. Doodle d
 
 ---
 
+## Packaging Standalone Executables
+
+Doodle includes a packaging utility that bundles your Python logic, HTML/CSS layouts, shader assets, and compiled binary libraries into a single, zero-dependency standalone executable.
+
+Run the packager from the root directory:
+```bash
+# Package with a custom name
+python -m doodle.cli package examples/breakout/main.py --name BreakoutGame
+```
+
+### Options:
+- `-n`, `--name`: The filename of the generated executable (default matches entrypoint script name).
+- `--console`: Keep the OS command terminal visible for console debugging output.
+
+Once complete, look in the `dist/` folder to retrieve your executable.
+
+---
+
 ## Next Steps
 
 - **[API Reference](api-reference.md)** — Complete function and class documentation

@@ -21,7 +21,7 @@ typedef struct {
     float inv_max_lifetime;
 } Particle;
 
-#define MAX_PARTICLES 2048
+#define MAX_PARTICLES 512
 static Particle particle_pool[MAX_PARTICLES];
 static int particle_count = 0;
 int particles_drawn_this_frame = 0;

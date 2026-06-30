@@ -13,6 +13,7 @@
 #include "renderer.h"
 #include "particles.h"
 #include "cache.h"
+#include "profiler.h"
 #include <sys/stat.h>
 #include <time.h>
 #include <string.h>
@@ -233,8 +234,7 @@ static PyObject* doodle_update_text(PyObject* self, PyObject* args) {
     UINode* node = GetNodeOrRaise(id);
     if (!node) return NULL;
     if (strcmp(node->text_content, text) != 0) {
-        strncpy(node->text_content, text, sizeof(node->text_content) - 1);
-        node->text_content[sizeof(node->text_content) - 1] = '\0';
+        node->text_content = DOMStrDup(text);
         ctx.layout_dirty = 1;
     }
     Py_RETURN_TRUE;
@@ -413,7 +413,7 @@ static PyObject* doodle_shake_camera(PyObject* self, PyObject* args) {
     Py_RETURN_NONE;
 }
 
-double GetProcessMemoryUsage(void);
+
 
 // Developer Tools Variables and Functions
 static PyObject* console_callback = NULL;
@@ -865,8 +865,7 @@ static PyObject* doodle_batch_process(PyObject* self, PyObject* args, PyObject* 
                 UINode* node = GetNodeOrRaise(id);
                 if (!node) return NULL;
                 if (strcmp(node->text_content, text) != 0) {
-                    strncpy(node->text_content, text, sizeof(node->text_content) - 1);
-                    node->text_content[sizeof(node->text_content) - 1] = '\0';
+                    node->text_content = DOMStrDup(text);
                     ctx.layout_dirty = 1;
                 }
             }
@@ -1028,6 +1027,10 @@ static PyObject* doodle_run(PyObject* self, PyObject* args, PyObject* kwargs) {
 
             FreeNode(ctx.root);
             UnloadActiveMusics();
+            UnloadCachedTextures();
+            UnloadCachedSounds();
+            UnloadCachedShaders();
+            UnloadCachedFonts();
 
             ctx.root = ParseHTML(layout);
             if (ctx.root) {
@@ -1102,6 +1105,7 @@ static PyObject* doodle_run(PyObject* self, PyObject* args, PyObject* kwargs) {
         FreeNode(ctx.root);
         ctx.root = NULL;
     }
+    CleanupDOM();
 
     Py_RETURN_NONE;
 }

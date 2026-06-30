@@ -1,169 +1,209 @@
-import os
-import sys
-
 import doodle
 
-# Game state dictionary (Passed to doodle.run for reactive templating!)
+# ── Game State ──
 state = {
     "score": 0,
     "lives": 3
 }
 
-ball_dx = 5.0
-ball_dy = -5.0
+BALL_SPEED = 5.0
+PADDLE_SPEED = 9.0
+PADDLE_Y = 430
+BALL_START_X = 390
+BALL_START_Y = 250
+
+ball_dx = BALL_SPEED
+ball_dy = -BALL_SPEED
 game_over = False
+victory = False
+active_bricks = 32
 
-# OOP Node wrappers
-ball = doodle.get_node("ball")
-paddle = doodle.get_node("paddle")
-game_over_screen = doodle.get_node("game-over-screen")
+# Coordinate offsets to map local coordinates to absolute screen coordinates.
+# Arena is positioned at (0, 100) with padding-left: 15px and padding-top: 25px.
+# So the inner arena content starts at absolute (15, 125).
+OFFSET_X = 15
+OFFSET_Y = 125
 
-# Fast static lookups for brick configuration
-_PITCH_MAP = {"b1": 783.99, "b2": 659.25, "b3": 587.33, "b4": 523.25}
-_COLOR_MAP = {"b1": "#f43f5e", "b2": "#fb923c", "b3": "#facc15", "b4": "#4ade80"}
+# Brick row colors for particles
+ROW_COLORS = {1: "#ff6b81", 2: "#ffa502", 3: "#ffd43b", 4: "#51cf66"}
+
+# ── Node References (lazy init) ──
+paddle = None
+ball = None
+game_over_screen = None
+victory_screen = None
 
 def restart_game():
-    global ball_dx, ball_dy, game_over
-    try:
-        os.utime("layout.html", None) # Trigger hot reload reset
-    except Exception:
-        pass
-
+    global ball_dx, ball_dy, game_over, victory, active_bricks
     state["score"] = 0
     state["lives"] = 3
+    ball_dx = BALL_SPEED
+    ball_dy = -BALL_SPEED
     game_over = False
+    victory = False
+    active_bricks = 32
+
+    paddle.position = (350, PADDLE_Y)
+    ball.position = (BALL_START_X, BALL_START_Y)
 
     game_over_screen.hide()
+    victory_screen.hide()
 
-    # Place entities
-    ball.position = (390, 350)
-    paddle.position = (350, 500)
+    # Play restart sound
+    doodle.playSynth(523.0, 0.1, doodle.WAVE_TRIANGLE, 0.01, 0.02, 0.3, 0.02)
 
-    ball_dx = 5.0
-    ball_dy = -5.0
+    for r in range(1, 5):
+        for c in range(1, 9):
+            brick = doodle.getNode(f"b{r}{c}")
+            if brick:
+                brick.show()
 
-    # Play procedural restart sound tone
-    doodle.play_synth(440.0, 0.15, doodle.WAVE_TRIANGLE, 0.01, 0.05, 0.3, 0.05)
+def tick():
+    global ball_dx, ball_dy, game_over, victory, active_bricks
+    global paddle, ball, game_over_screen, victory_screen
 
-    # Trigger a smooth entrance animation for the paddle
-    paddle.y = 580
-    doodle.animate("paddle", target_y=500, duration=0.4, ease="quad_out")
+    # Lazy init nodes (first tick)
+    if paddle is None:
+        paddle = doodle.getNode("paddle")
+        ball = doodle.getNode("ball")
+        game_over_screen = doodle.getNode("game-over")
+        victory_screen = doodle.getNode("victory-screen")
 
-def game_loop_tick():
-    global ball_dx, ball_dy, game_over
-
-    # Global Reset Key (R)
-    if doodle.is_key_pressed(82): # KEY_R = 82
-        restart_game()
-        doodle.shake_camera(10.0, 0.4)
-
-    if game_over:
-        doodle.set_mouse_cursor(4 if doodle.is_node_hovered("restart-btn") else 0)
+    if game_over or victory:
+        doodle.setMouseCursor(4 if doodle.isNodeHovered("restart-btn") or doodle.isNodeHovered("restart-btn-2") else 0)
         return
 
-    # 1. Update Paddle Positioning
+    # ── Paddle Movement ──
     px, py = paddle.position
 
-    # Keyboard movement
-    if doodle.is_key_down(263): # Left
-        px -= 9.0
-    if doodle.is_key_down(262): # Right
-        px += 9.0
+    if doodle.isKeyDown(263):  # LEFT
+        px -= PADDLE_SPEED
+    if doodle.isKeyDown(262):  # RIGHT
+        px += PADDLE_SPEED
 
-    # Mouse movement
-    mx = doodle.get_mouse_x()
+    mx = doodle.getMouseX()
     if 0 < mx < 800:
-        px = mx - 50.0
+        px = mx - 55.0
 
-    # Paddle boundary checks
-    if px < 0:
-        px = 0.0
-    elif px > 700.0:  # 800 - 100
-        px = 700.0
-    # 2. Calculate Ball Position
+    px = max(0.0, min(690.0, px))
+
+    # ── Ball Movement ──
     bx, by = ball.position
     new_bx = bx + ball_dx
     new_by = by + ball_dy
 
-    # 3. Batch process positions and collisions!
-    res = doodle.batch_process(
+    # ── Wall bounces with effects (offsetting spawned particles to align with drawing camera) ──
+    if new_bx <= 10:
+        ball_dx = -ball_dx
+        new_bx = 10
+        doodle.playSynth(220.0, 0.04, doodle.WAVE_SINE, 0.002, 0.01, 0.2, 0.01)
+        doodle.spawnParticles(new_bx + OFFSET_X, new_by + OFFSET_Y, 8, "#475569", 2.0, 0.3)
+
+    if new_bx >= 780:
+        ball_dx = -ball_dx
+        new_bx = 780
+        doodle.playSynth(220.0, 0.04, doodle.WAVE_SINE, 0.002, 0.01, 0.2, 0.01)
+        doodle.spawnParticles(new_bx + OFFSET_X, new_by + OFFSET_Y, 8, "#475569", 2.0, 0.3)
+
+    if new_by <= 5:
+        ball_dy = -ball_dy
+        new_by = 5
+        doodle.playSynth(196.0, 0.04, doodle.WAVE_SINE, 0.002, 0.01, 0.2, 0.01)
+        doodle.spawnParticles(new_bx + OFFSET_X, new_by + OFFSET_Y, 8, "#475569", 2.0, 0.3)
+
+    # ── Batch update positions ──
+    doodle.batchProcess(
         positions={
             "paddle": (px, py),
-            "ball": (new_bx, new_by)
-        },
-        collisions=[
-            ("ball", "paddle"),
-            ("ball", "bricks")
-        ]
+            "ball": (new_bx, new_by),
+        }
     )
 
+    # ── Paddle Collision ──
+    if doodle.checkCollision("ball", "paddle"):
+        if ball_dy > 0:
+            ball_dy = -ball_dy
+            hit_factor = (new_bx - (px + 55)) / 55.0
+            ball_dx = hit_factor * 6.0
 
-    # 3. Collision with Paddle
-    if res.get(("ball", "paddle"), False):
-        ball_dx = ((new_bx + 8) - (px + 50)) * 0.16
-        ball_dy = -abs(ball_dy)
+            # Bright ping sound
+            doodle.playSynth(440.0, 0.08, doodle.WAVE_TRIANGLE, 0.005, 0.02, 0.4, 0.02)
+            # Cyan spray of particles (properly offset to hit point)
+            doodle.spawnParticles(new_bx + OFFSET_X, new_by + 8 + OFFSET_Y, 25, "#74b9ff", 4.0, 0.4)
+            doodle.shakeCamera(3.0, 0.1)
 
-        # Procedural Sound Synth (Paddle Hit)
-        doodle.play_synth(293.66, 0.08, doodle.WAVE_SQUARE, 0.005, 0.02, 0.4, 0.02)
-        doodle.shake_camera(4.0, 0.15)
-        doodle.spawn_particles(new_bx + 8, new_by + 8, 8, "#00ffcc", 2.0, 0.3)
+    # ── Brick Collisions ──
+    for r in range(1, 5):
+        for c in range(1, 9):
+            brick_id = f"b{r}{c}"
+            if doodle.checkCollision("ball", brick_id):
+                brick = doodle.getNode(brick_id)
+                if brick:
+                    brick.hide()
+                    ball_dy = -ball_dy
 
-    # 4. Collision with Bricks
-    hit_brick = res.get(("ball", "bricks"), None)
-    if hit_brick:
-        ball_dy = -ball_dy
-        doodle.remove_node(hit_brick)
-        state["score"] += 100
+                    # Row-dependent pitch — higher rows = higher pitch
+                    pitch = 260.0 + (5 - r) * 80.0
+                    doodle.playSynth(pitch, 0.08, doodle.WAVE_SQUARE, 0.005, 0.02, 0.35, 0.02)
 
-        prefix = hit_brick[:2]
-        pitch = _PITCH_MAP.get(prefix, 783.99)
-        doodle.play_synth(pitch, 0.06, doodle.WAVE_TRIANGLE, 0.002, 0.01, 0.2, 0.01)
-        doodle.shake_camera(6.0, 0.2)
+                    # Colored particle burst matching the brick row
+                    color = ROW_COLORS.get(r, "#ffffff")
+                    doodle.spawnParticles(new_bx + OFFSET_X, new_by + OFFSET_Y, 35, color, 5.0, 0.5)
+                    # Extra white sparkle
+                    doodle.spawnParticles(new_bx + OFFSET_X, new_by + OFFSET_Y, 10, "#ffffff", 3.0, 0.3)
 
-        p_color = _COLOR_MAP.get(prefix, "#ffffff")
-        doodle.spawn_particles(new_bx + 8, new_by + 8, 30, p_color, 4.5, 0.6)
+                    doodle.shakeCamera(4.0, 0.12)
 
-    # 5. Wall bounce checks
-    if new_bx <= 0 or new_bx >= 784:  # 800 - 16
-        ball_dx = -ball_dx
-        doodle.play_synth(196.0, 0.05, doodle.WAVE_SINE, 0.005, 0.02, 0.5, 0.02)
-        doodle.shake_camera(2.0, 0.1)
+                    state["score"] += (5 - r) * 50  # Top rows worth more
+                    active_bricks -= 1
 
-    if new_by <= 0:
-        ball_dy = -ball_dy
-        doodle.play_synth(196.0, 0.05, doodle.WAVE_SINE, 0.005, 0.02, 0.5, 0.02)
-        doodle.shake_camera(2.0, 0.1)
+                    if active_bricks <= 0:
+                        victory = True
+                        victory_screen.show()
+                        # Victory fanfare
+                        doodle.playSynth(523.0, 0.2, doodle.WAVE_TRIANGLE, 0.01, 0.05, 0.5, 0.1)
+                        doodle.spawnParticles(400 + OFFSET_X, 250 + OFFSET_Y, 80, "#ffd43b", 6.0, 1.0)
+                        doodle.spawnParticles(400 + OFFSET_X, 250 + OFFSET_Y, 50, "#ff6b81", 5.0, 0.8)
+                        doodle.shakeCamera(8.0, 0.3)
+                break
 
-    # Ball falls off screen
-    if new_by >= 600:
+    # ── Bottom boundary (Lose Life) ──
+    if new_by >= 460:
+        # Deep thud sound
+        doodle.playSynth(80.0, 0.4, doodle.WAVE_SAWTOOTH, 0.01, 0.15, 0.1, 0.15)
+        # Red danger particles
+        doodle.spawnParticles(new_bx + OFFSET_X, 460 + OFFSET_Y, 40, "#ff6b81", 4.0, 0.6)
+        doodle.shakeCamera(8.0, 0.25)
         state["lives"] -= 1
-
-        # Procedural synth sound (life lost)
-        doodle.play_synth(110.0, 0.35, doodle.WAVE_SAWTOOTH, 0.01, 0.15, 0.1, 0.1)
-        doodle.shake_camera(12.0, 0.4)
-        doodle.spawn_particles(new_bx, 580, 50, "#f43f5e", 6.0, 0.8)
 
         if state["lives"] <= 0:
             game_over = True
             game_over_screen.show()
+            # Game over sound
+            doodle.playSynth(65.0, 0.6, doodle.WAVE_SAWTOOTH, 0.01, 0.2, 0.05, 0.3)
+            doodle.spawnParticles(400 + OFFSET_X, 300 + OFFSET_Y, 60, "#ff6b81", 5.0, 1.0)
         else:
-            # Reset ball position
-            ball.position = (390, 350)
-            ball_dx = 5.0
-            ball_dy = -5.0
+            paddle.position = (350, PADDLE_Y)
+            ball.position = (BALL_START_X, BALL_START_Y)
+            ball_dx = BALL_SPEED
+            ball_dy = -BALL_SPEED
 
-# Register update tick
-doodle.register_tick_callback(game_loop_tick)
+            doodle.batchProcess(
+                positions={
+                    "paddle": (350, PADDLE_Y),
+                    "ball": (BALL_START_X, BALL_START_Y),
+                }
+            )
 
-def main():
-    doodle.run(
-        layout="layout.html",
-        style="styles.css",
-        width=800,
-        height=600,
-        title="Doodle Powerhouse Breakout",
-        state=state
-    )
+# ── Setup ──
+doodle.registerTickCallback(tick)
+doodle.setEventContext({"restart": restart_game})
 
-if __name__ == "__main__":
-    main()
+doodle.run(
+    layout="layout.html",
+    style="styles.css",
+    width=800,
+    height=600,
+    title="Breakout - CRT Edition",
+    state=state,
+)

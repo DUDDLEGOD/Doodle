@@ -1,7 +1,9 @@
-#include "string_utils.h"
+#ifndef STRING_UTILS_H
+#define STRING_UTILS_H
+
 #include <string.h>
 
-char* TrimWhitespace(char* str) {
+static inline char* TrimWhitespace(char* str) {
     if (!str) return NULL;
     while (*str && (*str == ' ' || *str == '\t' || *str == '\r' || *str == '\n')) str++;
     if (*str == 0) return str;
@@ -10,3 +12,5 @@ char* TrimWhitespace(char* str) {
     end[1] = '\0';
     return str;
 }
+
+#endif // STRING_UTILS_H

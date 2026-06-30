@@ -1,152 +1,133 @@
-.stage {
+* {
+    font-family: monospace;
+}
+
+.container {
+    width: 800px;
+    height: 600px;
+    background-color: #020617;
     flex-direction: column;
-    width: 100%;
-    height: 100%;
-    background-color: #0b0f19;
 }
 
 .hud {
-    flex-direction: row;
-    width: 100%;
-    height: 50px;
+    width: 800px;
+    height: 100px;
     background-color: #0f172a;
-    border-bottom: 2px;
-    border-color: #1e293b;
+    flex-direction: row;
+    justify-content: space-between;
     align-items: center;
-    padding-left: 20px;
-    padding-right: 20px;
+    padding-left: 40px;
+    padding-right: 40px;
+    border-width: 0px;
 }
 
 #score-text {
-    width: grow;
-    height: 30px;
-    color: #38bdf8;
-    font-size: 22px;
-    text-align: left;
+    color: #e2e8f0;
+    font-size: 40px;
 }
 
 #lives-text {
-    width: grow;
-    height: 30px;
-    color: #d527d5;
-    font-size: 22px;
-    text-align: right;
+    color: #e2e8f0;
+    font-size: 40px;
 }
 
-.game-space {
-    width: 100%;
-    height: 550px;
-    position: relative;
+.arena {
+    width: 800px;
+    height: 500px;
+    padding-top: 25px;
+    padding-left: 15px;
+    padding-right: 15px;
+    background-color: #0f172a;
+    flex-direction: column;
     shader: "shaders/crt.fs";
 }
 
 .brick-row {
     flex-direction: row;
-    width: 800px;
-    height: 35px;
-    justify-content: space-around;
-    align-items: center;
-    padding-left: 10px;
-    padding-right: 10px;
+    justify-content: center;
+    margin-bottom: 6px;
 }
 
 .brick {
-    width: grow;
-    height: 25px;
-    margin: 4px;
+    width: 88px;
+    height: 28px;
+    margin-left: 3px;
+    margin-right: 3px;
     border-radius: 4px;
-    border-width: 2px;
+    border-width: 0px;
 }
 
-.row1 {
-    background-color: #f43f5e;
-    border-color: #fda4af;
-}
+.row1 { background-color: #ff6b81; }
+.row2 { background-color: #ffa502; }
+.row3 { background-color: #ffd43b; }
+.row4 { background-color: #51cf66; }
 
-.row2 {
-    background-color: #fb923c;
-    border-color: #fed7aa;
-}
-
-.row3 {
-    background-color: #facc15;
-    border-color: #fef08a;
-}
-
-.row4 {
-    background-color: #4ade80;
-    border-color: #bbf7d0;
-}
-
-.brick:hover {
-    background-color: #ffffff;
-    border-color: #00ffcc;
-}
-
-.paddle-entity {
-    position: absolute;
-    left: 350px;
-    top: 500px;
-    width: 100px;
-    height: 18px;
-    background-color: #00ffcc;
-    border-radius: 9px;
-    border-width: 2px;
-    border-color: #ffffff;
-}
-
-.paddle-entity:hover {
-    background-color: #ffffff;
-    border-color: #00ffcc;
-}
-
-.ball-entity {
+.ball {
     position: absolute;
     left: 390px;
-    top: 350px;
-    width: 16px;
-    height: 16px;
+    top: 250px;
+    z-index: 10;
 }
 
-.game-over-modal {
+.paddle {
     position: absolute;
-    left: 200px;
-    top: 150px;
-    width: 400px;
-    height: 220px;
-    background-color: #1e1b4b;
-    border-radius: 12px;
-    border-width: 4px;
-    border-color: #f43f5e;
+    left: 350px;
+    top: 430px;
+    width: 110px;
+    height: 16px;
+    background-color: #74b9ff;
+    border-radius: 8px;
+    border-width: 0px;
+    z-index: 10;
+}
+
+.modal {
+    position: absolute;
+    left: 150px;
+    top: 100px;
+    width: 500px;
+    height: 250px;
+    background-color: #0f172a;
+    border-color: #ff6b81;
+    border-width: 3px;
+    border-radius: 16px;
     flex-direction: column;
     justify-content: center;
     align-items: center;
     display: none;
+    z-index: 100;
+}
+
+#victory-screen {
+    border-color: #51cf66;
 }
 
 #game-over-text {
-    width: 300px;
-    height: 50px;
-    color: #f43f5e;
-    font-size: 38px;
-    text-align: center;
-    margin-bottom: 20px;
+    color: #ff6b81;
+    font-size: 56px;
+    margin-bottom: 40px;
+}
+
+#victory-text {
+    color: #51cf66;
+    font-size: 56px;
+    margin-bottom: 40px;
 }
 
 .btn {
-    width: 220px;
-    height: 45px;
-    background-color: #0f172a;
-    color: #38bdf8;
-    font-size: 18px;
-    text-align: center;
+    background-color: #1e293b;
+    padding-left: 30px;
+    padding-right: 30px;
+    padding-top: 14px;
+    padding-bottom: 14px;
+    border-radius: 8px;
     border-width: 2px;
-    border-color: #38bdf8;
-    border-radius: 6px;
+    border-color: #475569;
+    color: #f1f5f9;
+    font-size: 28px;
 }
 
 .btn:hover {
-    background-color: #38bdf8;
-    color: #0f172a;
-    border-color: #ffffff;
+    background-color: #334155;
+    border-color: #94a3b8;
 }

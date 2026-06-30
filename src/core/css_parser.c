@@ -142,40 +142,41 @@ void handle_margin_top(UINode* node, const char* value) { node->style.margin_top
 void handle_margin_bottom(UINode* node, const char* value) { node->style.margin_bottom = ParseUnit(value); }
 
 void handle_justify_content(UINode* node, const char* value) {
-    strncpy(node->style.justify_content, value, sizeof(node->style.justify_content) - 1);
-    node->style.justify_content[sizeof(node->style.justify_content) - 1] = '\0';
+    node->style.justify_content = DOMStrDup(value);
 }
 
 void handle_align_items(UINode* node, const char* value) {
-    strncpy(node->style.align_items, value, sizeof(node->style.align_items) - 1);
-    node->style.align_items[sizeof(node->style.align_items) - 1] = '\0';
+    node->style.align_items = DOMStrDup(value);
 }
 
 void handle_text_align(UINode* node, const char* value) {
-    strncpy(node->style.text_align, value, sizeof(node->style.text_align) - 1);
-    node->style.text_align[sizeof(node->style.text_align) - 1] = '\0';
+    node->style.text_align = DOMStrDup(value);
 }
 
 void handle_shader(UINode* node, const char* value) {
     const char* start = value;
     if (*start == '"' || *start == '\'') start++;
-    strncpy(node->style.shader_path, start, sizeof(node->style.shader_path) - 1);
-    node->style.shader_path[sizeof(node->style.shader_path) - 1] = '\0';
-    int len = strlen(node->style.shader_path);
-    if (len > 0 && (node->style.shader_path[len-1] == '"' || node->style.shader_path[len-1] == '\'')) {
-        node->style.shader_path[len-1] = '\0';
+    char buf[256];
+    strncpy(buf, start, sizeof(buf) - 1);
+    buf[sizeof(buf) - 1] = '\0';
+    int len = strlen(buf);
+    if (len > 0 && (buf[len-1] == '"' || buf[len-1] == '\'')) {
+        buf[len-1] = '\0';
     }
+    node->style.shader_path = DOMStrDup(buf);
 }
 
 void handle_font_family(UINode* node, const char* value) {
     const char* start = value;
     if (*start == '"' || *start == '\'') start++;
-    strncpy(node->style.font_path, start, sizeof(node->style.font_path) - 1);
-    node->style.font_path[sizeof(node->style.font_path) - 1] = '\0';
-    int len = strlen(node->style.font_path);
-    if (len > 0 && (node->style.font_path[len-1] == '"' || node->style.font_path[len-1] == '\'')) {
-        node->style.font_path[len-1] = '\0';
+    char buf[256];
+    strncpy(buf, start, sizeof(buf) - 1);
+    buf[sizeof(buf) - 1] = '\0';
+    int len = strlen(buf);
+    if (len > 0 && (buf[len-1] == '"' || buf[len-1] == '\'')) {
+        buf[len-1] = '\0';
     }
+    node->style.font_path = DOMStrDup(buf);
 }
 
 void handle_z_index(UINode* node, const char* value) {
@@ -281,6 +282,12 @@ void ApplyStyleSheetToTree(UINode* node) {
     for (int i = 0; i < node->child_count; i++) {
         ApplyStyleSheetToTree(node->children[i]);
     }
+}
+
+static int CompareCSSRules(const void* a, const void* b) {
+    const CSSRule* rule_a = (const CSSRule*)a;
+    const CSSRule* rule_b = (const CSSRule*)b;
+    return rule_a->specificity - rule_b->specificity;
 }
 
 void LoadCSS(const char* filepath) {
@@ -390,15 +397,7 @@ void LoadCSS(const char* filepath) {
         if (*p == '}') p++;
     }
 
-    for (int i = 0; i < global_stylesheet.count - 1; i++) {
-        for (int j = 0; j < global_stylesheet.count - i - 1; j++) {
-            if (global_stylesheet.rules[j].specificity > global_stylesheet.rules[j+1].specificity) {
-                CSSRule temp = global_stylesheet.rules[j];
-                global_stylesheet.rules[j] = global_stylesheet.rules[j+1];
-                global_stylesheet.rules[j+1] = temp;
-            }
-        }
-    }
+    qsort(global_stylesheet.rules, global_stylesheet.count, sizeof(CSSRule), CompareCSSRules);
 
     free(buf);
 }

@@ -134,14 +134,14 @@ UINode* ParseHTML(const char* filepath) {
                 }
 
                 if (strcmp(attr_name, "id") == 0) {
-                    strncpy(node->id, attr_val, sizeof(node->id) - 1);
-                    node->id[sizeof(node->id) - 1] = '\0';
+                    RemoveFromHashTable(node->id);
+                    node->id = DOMStrDup(attr_val);
                     AddToHashTable(node);
                 } else if (strcmp(attr_name, "class") == 0) {
+                    node->class_name = DOMStrDup(attr_val);
                     ParseClassHashes(attr_val, node->class_hashes, 8);
                 } else if (strcmp(attr_name, "src") == 0) {
-                    strncpy(node->asset_path, attr_val, sizeof(node->asset_path) - 1);
-                    node->asset_path[sizeof(node->asset_path) - 1] = '\0';
+                    node->asset_path = DOMStrDup(attr_val);
                 } else if (strcmp(attr_name, "autoplay") == 0) {
                     node->autoplay = 1;
                 } else if (strcmp(attr_name, "loop") == 0) {
@@ -213,8 +213,7 @@ UINode* ParseHTML(const char* filepath) {
             inner_text[ti] = '\0';
             char* trimmed = TrimWhitespace(inner_text);
             if (strlen(trimmed) > 0) {
-                strncpy(node->text_content, trimmed, sizeof(node->text_content) - 1);
-                node->text_content[sizeof(node->text_content) - 1] = '\0';
+                node->text_content = DOMStrDup(trimmed);
             }
 
             if (!self_closing) {

@@ -17,5 +17,4 @@ raylib_dist/
 *.a
 *.cfg
 
-# Individual backups
-individual_repos/
+tests/

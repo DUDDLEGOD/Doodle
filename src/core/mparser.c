@@ -229,5 +229,11 @@ void GetStyleProperty(UINode* node, const char* name, char* out_value, int max_l
         else if (s->height_type == SIZING_PERCENT) snprintf(out_value, max_len, "%f%%", s->height_value);
         else if (s->height_type == SIZING_GROW) snprintf(out_value, max_len, "grow");
         else if (s->height_type == SIZING_FIT) snprintf(out_value, max_len, "fit");
+    } else if (strcmp(name, "shader") == 0 || strcmp(name, "shader-path") == 0 || strcmp(name, "shader_path") == 0) {
+        if (s->shader_path) {
+            snprintf(out_value, max_len, "%s", s->shader_path);
+        } else {
+            out_value[0] = '\0';
+        }
     }
 }

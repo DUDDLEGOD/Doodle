@@ -39,14 +39,24 @@ void UnloadCachedTextures(void) {
 typedef struct {
     char path[256];
     Shader shader;
+    long last_mod_time;
 } CachedShader;
 
 static CachedShader shader_cache[32];
 static int shader_cache_count = 0;
 
 Shader GetCachedShader(const char* path) {
+    long current_mod_time = GetFileModTime(path);
     for (int i = 0; i < shader_cache_count; i++) {
         if (strcmp(shader_cache[i].path, path) == 0) {
+            if (current_mod_time != shader_cache[i].last_mod_time) {
+                Shader new_sh = LoadShader(NULL, path);
+                if (new_sh.id > 0) {
+                    UnloadShader(shader_cache[i].shader);
+                    shader_cache[i].shader = new_sh;
+                    shader_cache[i].last_mod_time = current_mod_time;
+                }
+            }
             return shader_cache[i].shader;
         }
     }
@@ -55,6 +65,7 @@ Shader GetCachedShader(const char* path) {
         strncpy(shader_cache[shader_cache_count].path, path, 255);
         shader_cache[shader_cache_count].path[255] = '\0';
         shader_cache[shader_cache_count].shader = sh;
+        shader_cache[shader_cache_count].last_mod_time = current_mod_time;
         shader_cache_count++;
     }
     return sh;

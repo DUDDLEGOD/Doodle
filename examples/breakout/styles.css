@@ -40,6 +40,7 @@
     background-color: #0f172a;
     flex-direction: column;
     shader: "shaders/crt.fs";
+    /* shader:"shaders/hit.fs"; */
 }
 
 .brick-row {

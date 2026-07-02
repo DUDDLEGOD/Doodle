@@ -5,6 +5,7 @@
 #include <string.h>
 
 static Shader current_active_shader = {0};
+static Texture2D white_texture = {0};
 
 #define MAX_SORT_NODES 1024
 
@@ -123,6 +124,16 @@ void DrawUINode(UINode* node) {
 
             Shader sh = GetCachedShader(active_style->shader_path);
             if (sh.id > 0) {
+                int timeLoc = GetShaderLocation(sh, "time");
+                if (timeLoc != -1) {
+                    float timeVal = (float)GetTime();
+                    SetShaderValue(sh, timeLoc, &timeVal, SHADER_UNIFORM_FLOAT);
+                }
+                int rotationLoc = GetShaderLocation(sh, "rotation");
+                if (rotationLoc != -1) {
+                    float rotVal = active_style->rotation;
+                    SetShaderValue(sh, rotationLoc, &rotVal, SHADER_UNIFORM_FLOAT);
+                }
                 SetActiveShader(sh);
             }
 
@@ -191,13 +202,32 @@ void DrawUINode(UINode* node) {
     if (has_shader) {
         Shader sh = GetCachedShader(active_style->shader_path);
         if (sh.id > 0) {
+            int timeLoc = GetShaderLocation(sh, "time");
+            if (timeLoc != -1) {
+                float timeVal = (float)GetTime();
+                SetShaderValue(sh, timeLoc, &timeVal, SHADER_UNIFORM_FLOAT);
+            }
+            int rotationLoc = GetShaderLocation(sh, "rotation");
+            if (rotationLoc != -1) {
+                float rotVal = active_style->rotation;
+                SetShaderValue(sh, rotationLoc, &rotVal, SHADER_UNIFORM_FLOAT);
+            }
             SetActiveShader(sh);
         }
     }
 
     if (node->type == NODE_VIEW) {
         if (active_style->bg_color.a > 0) {
-            if (active_style->border_radius > 0) {
+            if (has_shader) {
+                if (white_texture.id == 0) {
+                    Image img = GenImageColor(1, 1, WHITE);
+                    white_texture = LoadTextureFromImage(img);
+                    UnloadImage(img);
+                }
+                Rectangle src = { 0, 0, 1, 1 };
+                Rectangle dest = { node->layout.x, node->layout.y, node->layout.width, node->layout.height };
+                DrawTexturePro(white_texture, src, dest, (Vector2){0,0}, 0.0f, active_style->bg_color); ctx.g_draw_calls++;
+            } else if (active_style->border_radius > 0) {
                 Rectangle rec = {node->layout.x, node->layout.y, node->layout.width, node->layout.height};
                 float min_dim = node->layout.width > node->layout.height ? node->layout.height : node->layout.width;
                 float roundness = min_dim > 0 ? (active_style->border_radius / min_dim) : 0.0f;

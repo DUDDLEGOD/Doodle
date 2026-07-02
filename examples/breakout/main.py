@@ -3,7 +3,9 @@ import doodle
 # ── Game State ──
 state = {
     "score": 0,
-    "lives": 3
+    "lives": 3,
+    "paddle_glitch": 0.0,
+    "destroyed_bricks": []
 }
 
 BALL_SPEED = 5.0
@@ -37,6 +39,7 @@ def restart_game():
     global ball_dx, ball_dy, game_over, victory, active_bricks
     state["score"] = 0
     state["lives"] = 3
+    state["paddle_glitch"] = 0.0
     ball_dx = BALL_SPEED
     ball_dy = -BALL_SPEED
     game_over = False
@@ -45,6 +48,8 @@ def restart_game():
 
     paddle.position = (350, PADDLE_Y)
     ball.position = (BALL_START_X, BALL_START_Y)
+    doodle.setStyle("paddle", "shader", "")
+    doodle.setStyle("paddle", "rotation", "0.0")
 
     game_over_screen.hide()
     victory_screen.hide()
@@ -52,11 +57,15 @@ def restart_game():
     # Play restart sound
     doodle.playSynth(523.0, 0.1, doodle.WAVE_TRIANGLE, 0.01, 0.02, 0.3, 0.02)
 
+    state["destroyed_bricks"] = []
     for r in range(1, 5):
         for c in range(1, 9):
-            brick = doodle.getNode(f"b{r}{c}")
+            brick_id = f"b{r}{c}"
+            brick = doodle.getNode(brick_id)
             if brick:
                 brick.show()
+                doodle.setStyle(brick_id, "shader", "")
+                doodle.setStyle(brick_id, "background-color", ROW_COLORS[r])
 
 def tick():
     global ball_dx, ball_dy, game_over, victory, active_bricks
@@ -68,6 +77,7 @@ def tick():
         ball = doodle.getNode("ball")
         game_over_screen = doodle.getNode("game-over")
         victory_screen = doodle.getNode("victory-screen")
+
 
     if game_over or victory:
         doodle.setMouseCursor(4 if doodle.isNodeHovered("restart-btn") or doodle.isNodeHovered("restart-btn-2") else 0)
@@ -125,7 +135,6 @@ def tick():
             ball_dy = -ball_dy
             hit_factor = (new_bx - (px + 55)) / 55.0
             ball_dx = hit_factor * 6.0
-
             # Bright ping sound
             doodle.playSynth(440.0, 0.08, doodle.WAVE_TRIANGLE, 0.005, 0.02, 0.4, 0.02)
             # Cyan spray of particles (properly offset to hit point)
@@ -136,10 +145,9 @@ def tick():
     for r in range(1, 5):
         for c in range(1, 9):
             brick_id = f"b{r}{c}"
-            if doodle.checkCollision("ball", brick_id):
+            if brick_id not in state.get("destroyed_bricks", []) and doodle.checkCollision("ball", brick_id):
                 brick = doodle.getNode(brick_id)
                 if brick:
-                    brick.hide()
                     ball_dy = -ball_dy
 
                     # Row-dependent pitch — higher rows = higher pitch
@@ -151,11 +159,16 @@ def tick():
                     doodle.spawnParticles(new_bx + OFFSET_X, new_by + OFFSET_Y, 35, color, 5.0, 0.5)
                     # Extra white sparkle
                     doodle.spawnParticles(new_bx + OFFSET_X, new_by + OFFSET_Y, 10, "#ffffff", 3.0, 0.3)
-
                     doodle.shakeCamera(4.0, 0.12)
-
-                    state["score"] += (5 - r) * 50  # Top rows worth more
-                    active_bricks -= 1
+                    if brick.style.shader == "shaders/hit.fs":
+                        # Second hit: make it transparent to keep its layout position without shifting other bricks
+                        doodle.setStyle(brick_id, "background-color", "transparent")
+                        doodle.setStyle(brick_id, "shader", "")
+                        state.setdefault("destroyed_bricks", []).append(brick_id)
+                        state["score"] += (5 - r) * 50  # Top rows worth more
+                        active_bricks -= 1
+                    else:
+                        doodle.setStyle(brick_id, "shader", "shaders/hit.fs")
 
                     if active_bricks <= 0:
                         victory = True

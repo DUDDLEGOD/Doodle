@@ -1010,7 +1010,28 @@ static PyObject* doodle_run(PyObject* self, PyObject* args, PyObject* kwargs) {
     InitWindow(width, height, title);
     InitAudioDevice();
     InitSynth();
-    SetTargetFPS(60);
+    
+    int target_fps = 60;
+    PyObject* sys_module = PyImport_ImportModule("sys");
+    if (sys_module) {
+        PyObject* argv = PyObject_GetAttrString(sys_module, "argv");
+        if (argv && PyList_Check(argv)) {
+            Py_ssize_t size = PyList_Size(argv);
+            for (Py_ssize_t i = 0; i < size; i++) {
+                PyObject* item = PyList_GetItem(argv, i);
+                if (item && PyUnicode_Check(item)) {
+                    const char* arg = PyUnicode_AsUTF8(item);
+                    if (arg && strcmp(arg, "--benchmark") == 0) {
+                        target_fps = 0;
+                        break;
+                    }
+                }
+            }
+        }
+        Py_XDECREF(argv);
+        Py_DECREF(sys_module);
+    }
+    SetTargetFPS(target_fps);
 
     ctx.root = ParseHTML(layout);
     if (ctx.root) {

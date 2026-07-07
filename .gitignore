@@ -8,6 +8,8 @@ wheels/
 
 # Virtual environments
 .venv
+.clangd
+.gitignore
 
 # Compiled binaries and build specs
 *.pyd
@@ -18,3 +20,7 @@ raylib_dist/
 *.cfg
 
 tests/
+
+# Notes
+todo.md
+example_ideas.md

@@ -13,8 +13,8 @@ static inline int HexVal(char c) {
 }
 
 static inline Color ParseColor(const char* hexOrRgba) {
-    if (!hexOrRgba) return BLANK;
-    
+    if (!hexOrRgba) return (Color){0};
+
     if (hexOrRgba[0] == '#') {
         int len = strlen(hexOrRgba);
         int r = 0, g = 0, b = 0, a = 255;
@@ -68,7 +68,7 @@ static inline Color ParseColor(const char* hexOrRgba) {
             return (Color){ (unsigned char)r, (unsigned char)g, (unsigned char)b, 255 };
         }
     }
-    return BLANK;
+    return (Color) { 0 };
 }
 
 #endif // COLOR_H

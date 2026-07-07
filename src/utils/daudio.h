@@ -19,6 +19,19 @@ typedef struct {
 void InitSynth(void);
 void CloseSynth(void);
 void PlaySynthTone(float frequency, float duration, int wave_type, ADSREnvelope env);
+void PlaySynthToneEx(
+    float frequency, 
+    float duration, 
+    int wave_type, 
+    ADSREnvelope env,
+    float frequency_slide,
+    float vibrato_speed,
+    float vibrato_depth,
+    float tremolo_speed,
+    float tremolo_depth,
+    float filter_cutoff,
+    float pan
+);
 void AudioSynthCallback(void *buffer, unsigned int frames);
 
 #endif // DAUDIO_H

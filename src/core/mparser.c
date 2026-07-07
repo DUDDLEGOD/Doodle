@@ -60,7 +60,7 @@ const char* DOMStrDup(const char* str) {
 }
 
 void InitDOM(void) {
-    if (!dom_arena.buffer) {
+    if (!dom_arena.begin) {
         ArenaInit(&dom_arena, 512 * 1024); // 512 KB arena
     } else {
         ArenaReset(&dom_arena);

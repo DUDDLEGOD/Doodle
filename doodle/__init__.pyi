@@ -327,11 +327,59 @@ def spawnParticles(x: float, y: float, count: int, color_hex: str, speed: float,
 
 def spawn_particles(x: float, y: float, count: int, color_hex: str, speed: float, lifetime: float) -> None: ...
 
-def playSynth(freq: float, duration: float, wave_type: int = 1, attack: float = 0.01, decay: float = 0.05, sustain: float = 0.5, release: float = 0.05) -> None:
-    """Play a procedurally synthesized sound tone with ADSR envelope styling."""
+def playSynth(
+    freq: float,
+    duration: float,
+    wave_type: int = 1,
+    attack: float = 0.01,
+    decay: float = 0.05,
+    sustain: float = 0.5,
+    release: float = 0.05,
+    frequency_slide: float = 0.0,
+    vibrato_speed: float = 0.0,
+    vibrato_depth: float = 0.0,
+    tremolo_speed: float = 0.0,
+    tremolo_depth: float = 0.0,
+    filter_cutoff: float = 0.0,
+    pan: float = 0.0,
+) -> None:
+    """
+    Play a procedurally synthesized sound tone.
+    
+    Parameters:
+        freq: Base frequency in Hz.
+        duration: Active tone duration in seconds.
+        wave_type: Waveform type (WAVE_SINE, WAVE_SQUARE, WAVE_TRIANGLE, WAVE_SAWTOOTH, WAVE_NOISE).
+        attack: Envelope attack time in seconds.
+        decay: Envelope decay time in seconds.
+        sustain: Envelope sustain level (0.0 to 1.0).
+        release: Envelope release time in seconds.
+        frequency_slide: Pitch slide rate in Hz/sec (sweeps frequency over time).
+        vibrato_speed: Frequency of pitch LFO in Hz.
+        vibrato_depth: Amplitude of pitch LFO modulation in Hz.
+        tremolo_speed: Frequency of amplitude LFO in Hz.
+        tremolo_depth: Depth of amplitude LFO modulation (0.0 to 1.0).
+        filter_cutoff: Low-pass filter cutoff frequency in Hz (0.0 to bypass).
+        pan: Stereo panning position (-1.0 for left, 1.0 for right, 0.0 for center).
+    """
     ...
 
-def play_synth(freq: float, duration: float, wave_type: int = 1, attack: float = 0.01, decay: float = 0.05, sustain: float = 0.5, release: float = 0.05) -> None: ...
+def play_synth(
+    freq: float,
+    duration: float,
+    wave_type: int = 1,
+    attack: float = 0.01,
+    decay: float = 0.05,
+    sustain: float = 0.5,
+    release: float = 0.05,
+    frequency_slide: float = 0.0,
+    vibrato_speed: float = 0.0,
+    vibrato_depth: float = 0.0,
+    tremolo_speed: float = 0.0,
+    tremolo_depth: float = 0.0,
+    filter_cutoff: float = 0.0,
+    pan: float = 0.0,
+) -> None: ...
 
 def registerConsoleCallback(callback: Callable[[str], str]) -> None:
     """Register a runtime developer console python command execution handler."""

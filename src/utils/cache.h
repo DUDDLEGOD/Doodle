@@ -9,6 +9,7 @@ void UnloadCachedTextures(void);
 
 Shader GetCachedShader(const char* path);
 void UnloadCachedShaders(void);
+void CheckShaderUpdates(void);
 
 Font GetCachedFont(const char* path);
 void UnloadCachedFonts(void);

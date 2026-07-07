@@ -283,7 +283,7 @@ static PyObject* doodle_spawn_particles(PyObject* self, PyObject* args) {
     Py_RETURN_NONE;
 }
 
-static PyObject* doodle_play_synth(PyObject* self, PyObject* args) {
+static PyObject* doodle_play_synth(PyObject* self, PyObject* args, PyObject* kwargs) {
     float freq;
     float duration;
     int wave_type = WAVE_SQUARE;
@@ -291,16 +291,40 @@ static PyObject* doodle_play_synth(PyObject* self, PyObject* args) {
     float decay = 0.05f;
     float sustain = 0.5f;
     float release = 0.05f;
+    float frequency_slide = 0.0f;
+    float vibrato_speed = 0.0f;
+    float vibrato_depth = 0.0f;
+    float tremolo_speed = 0.0f;
+    float tremolo_depth = 0.0f;
+    float filter_cutoff = 0.0f;
+    float pan = 0.0f;
 
-    if (!PyArg_ParseTuple(args, "ff|iffff", &freq, &duration, &wave_type, &attack, &decay, &sustain, &release)) {
+    static char* kwlist[] = {
+        "frequency", "duration", "wave_type",
+        "attack", "decay", "sustain", "release",
+        "frequency_slide", "vibrato_speed", "vibrato_depth",
+        "tremolo_speed", "tremolo_depth", "filter_cutoff", "pan",
+        NULL
+    };
+
+    if (!PyArg_ParseTupleAndKeywords(args, kwargs, "ff|ifffffffffff", kwlist,
+        &freq, &duration, &wave_type,
+        &attack, &decay, &sustain, &release,
+        &frequency_slide, &vibrato_speed, &vibrato_depth,
+        &tremolo_speed, &tremolo_depth, &filter_cutoff, &pan)) {
         return NULL;
     }
 
     ADSREnvelope env = { attack, decay, sustain, release };
-    PlaySynthTone(freq, duration, wave_type, env);
+    PlaySynthToneEx(
+        freq, duration, wave_type, env,
+        frequency_slide, vibrato_speed, vibrato_depth,
+        tremolo_speed, tremolo_depth, filter_cutoff, pan
+    );
 
     Py_RETURN_NONE;
 }
+
 
 static int IsNodeInCamera(UINode* node) {
     if (!node) return 0;
@@ -1075,6 +1099,7 @@ static PyObject* doodle_run(PyObject* self, PyObject* args, PyObject* kwargs) {
         }
 
         UpdateMusicStreams();
+        CheckShaderUpdates();
 
         BeginDrawing();
         ClearBackground(BLACK);
@@ -1198,8 +1223,8 @@ static PyMethodDef DoodleMethods[] = {
     {"spawn_particles", doodle_spawn_particles, METH_VARARGS, "Spawn particle explosion burst"},
     {"spawnParticles", doodle_spawn_particles, METH_VARARGS, "Spawn particle explosion burst"},
     
-    {"play_synth", doodle_play_synth, METH_VARARGS, "Play procedurally synthesized tone"},
-    {"playSynth", doodle_play_synth, METH_VARARGS, "Play procedurally synthesized tone"},
+    {"play_synth", (PyCFunction)doodle_play_synth, METH_VARARGS | METH_KEYWORDS, "Play procedurally synthesized tone"},
+    {"playSynth", (PyCFunction)doodle_play_synth, METH_VARARGS | METH_KEYWORDS, "Play procedurally synthesized tone"},
     
     {"register_console_callback", doodle_register_console_callback, METH_VARARGS, "Register console command callback"},
     {"registerConsoleCallback", doodle_register_console_callback, METH_VARARGS, "Register console command callback"},

@@ -6,12 +6,6 @@ A curated list of programs to build as `examples/`, organized by category. Each 
 
 ## 🎮 Games
 
-### 1. Pong
-> Classic 2-player (or vs AI) paddle game.
-
-- **Features tested:** `setPosition`, collision detection (rect-rect), keyboard input (`isKeyDown`), `playSynth` for bounce sounds, reactive score text via `{{ templates }}`, `animate` for serve animation
-- **Complexity:** ⭐ Easy — Great starter example
-
 ### 2. Snake
 > Grid-based snake that grows when eating food.
 
@@ -68,12 +62,6 @@ A curated list of programs to build as `examples/`, organized by category. Each 
 
 ## 📱 Apps & Utilities
 
-### 10. Calculator
-> Standard 4-function calculator with button grid.
-
-- **Features tested:** `isNodeClicked` on button grid, `updateText` for display, CSS grid layout with `flex-direction: row`, hover styles, `playSynth` for button click feedback, clean layout/CSS separation
-- **Complexity:** ⭐ Easy — Perfect for showcasing clean HTML/CSS layout
-
 ### 11. To-Do List
 > Add, check off, and delete tasks.
 
@@ -128,23 +116,20 @@ Build these in roughly this order — each one layers on complexity and tests ne
 
 | # | Example | New features exercised |
 |---|---------|----------------------|
-| 1 | **Calculator** | Layout, click events, text updates |
-| 2 | **Stopwatch** | Tick callback timing, state management |
-| 3 | **Pong** | Movement, keyboard input, collisions, synth |
-| 4 | **Particle Fireworks** | Mouse input, particles, camera |
-| 5 | **Pixel Art Editor** | Large grids, dynamic styling, hover |
-| 6 | **Snake** | Visibility toggling, grid logic, camera shake |
-| 7 | **Synthesizer** | All waveforms, ADSR, recording logic |
-| 8 | **To-Do List** | Event listeners, inline handlers, templates |
-| 9 | **Flappy Bird** | Physics, dynamic obstacles, node removal |
-| 10 | **Space Invaders** | Batch processing, class group collisions |
-| 11 | **Collision Visualizer** | Dragging, all collision shapes, visual debug |
-| 12 | **Weather Dashboard** | Complex layout showcase, theming |
-| 13 | **Platformer** | Camera scrolling, gravity, full game |
-| 14 | **Asteroids** | Rotation, camera tracking, circles |
-| 15 | **Drawing Canvas** | Continuous input, dynamic node creation |
-| 16 | **Dev Console Playground** | Runtime REPL, live manipulation |
-| 17 | **Hot Reload Showcase** | Tutorial/documentation piece |
+| 1 | **Stopwatch** | Tick callback timing, state management |
+| 2 | **Pong** | Movement, keyboard input, collisions, synth |
+| 3 | **Particle Fireworks** | Mouse input, particles, camera |
+| 4 | **Pixel Art Editor** | Large grids, dynamic styling, hover |
+| 5 | **Snake** | Visibility toggling, grid logic, camera shake |
+| 6 | **Synthesizer** | All waveforms, ADSR, recording logic |
+| 7 | **To-Do List** | Event listeners, inline handlers, templates |
+| 8 | **Flappy Bird** | Physics, dynamic obstacles, node removal |
+| 9 | **Space Invaders** | Batch processing, class group collisions |
+| 10 | **Collision Visualizer** | Dragging, all collision shapes, visual debug |
+| 11 | **Weather Dashboard** | Complex layout showcase, theming |
+| 12 | **Platformer** | Camera scrolling, gravity, full game |
+| 13 | **Asteroids** | Rotation, camera tracking, circles |
+| 14 | **Drawing Canvas** | Continuous input, dynamic node creation |
+| 15 | **Dev Console Playground** | Runtime REPL, live manipulation |
+| 16 | **Hot Reload Showcase** | Tutorial/documentation piece |
 
-> [!TIP]
-> The first 5-6 examples would give you excellent **portfolio-ready coverage** of every major engine feature. The rest are stretch goals that test edge cases and stress performance.

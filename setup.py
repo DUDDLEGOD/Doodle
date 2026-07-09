@@ -37,7 +37,10 @@ define_macros = []
 
 if not sys.platform == 'win32' or FORCE_MINGW:
     extra_compile_args.extend(['-ffunction-sections', '-fdata-sections'])
-    extra_link_args.extend(['-Wl,--gc-sections'])
+    if sys.platform == 'darwin':
+        extra_link_args.extend(['-Wl,-dead_strip'])
+    else:
+        extra_link_args.extend(['-Wl,--gc-sections'])
 
 if sys.platform.startswith('linux'):
     include_dirs.append('/usr/local/include')

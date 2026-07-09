@@ -18,11 +18,12 @@ Doodle is a high-performance, lightweight engine that combines a **native C rend
 | **Layout** | Flexbox engine (row/column, justify-content, align-items), absolute positioning, percentage/pixel/grow/fit sizing |
 | **Styling** | Full CSS property system, hover states, dynamic runtime style changes, custom fonts, border-radius, opacity |
 | **Input** | Keyboard polling (down/pressed), mouse position/buttons/wheel/cursor, node click & hover detection |
-| **Audio** | Polyphonic procedural synthesizer (5 waveforms, ADSR envelopes), cached sound file playback, background music streams |
+| **Audio** | Polyphonic procedural synthesizer (5 waveforms, ADSR envelopes, stereo panning, pitch slide, vibrato, tremolo, low-pass filter), cached sound/music files |
 | **Collision** | Rect-Rect, Circle-Circle, Circle-Rect detection, class-group collision queries, batch collision processing |
 | **Animation** | Tween engine with easing curves (linear, quad_in, quad_out) |
 | **Scripting** | Full Python OOP node wrappers, property accessors (`node.x += 10`), reactive `{{ template }}` data binding |
-| **Dev Tools** | Built-in FPS/draw-call profiler, runtime Python console (`~` key), hot-reload for layout & styles |
+| **Dev Tools** | Built-in FPS/draw-call/RAM profiler, runtime Python console (`~` key), hot-reload for layout, styles, and shaders |
+| **Memory & Perf**| Linked-list memory arenas, O(1) hash cache lookup, Trigonometry LUT, FBO render bypass, 90% reduced node layout structs |
 | **DX** | camelCase + snake_case dual API, full `.pyi` type stubs for IDE autocomplete, descriptive error messages with layout line numbers |
 
 ---
@@ -198,9 +199,9 @@ doodle.batchProcess(positions={...}, collisions=[...])  # Batched C call
 
 ### Audio
 ```python
-doodle.playSound("sfx/hit.wav")                              # Cached WAV playback
-doodle.playSynth(freq, duration, waveform, atk, dec, sus, rel)  # Procedural synth
-# Waveforms: WAVE_SINE, WAVE_SQUARE, WAVE_TRIANGLE, WAVE_SAWTOOTH, WAVE_NOISE
+doodle.playSound("sfx/hit.wav")                              # Cached WAV/OGG playback
+doodle.playSynth(frequency, duration, wave_type=1, attack=0.01, decay=0.05, sustain=0.5, release=0.05, frequency_slide=0.0, vibrato_speed=0.0, vibrato_depth=0.0, tremolo_speed=0.0, tremolo_depth=0.0, filter_cutoff=0.0, pan=0.0) # Synthesizer
+# Waveforms: WAVE_SINE=0, WAVE_SQUARE=1, WAVE_TRIANGLE=2, WAVE_SAWTOOTH=3, WAVE_NOISE=4
 ```
 
 ### Effects

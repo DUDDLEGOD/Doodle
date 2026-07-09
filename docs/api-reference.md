@@ -262,19 +262,26 @@ Play a cached WAV/OGG sound file. Files are loaded once and reused.
 doodle.playSound("sfx/hit.wav")
 ```
 
-### `doodle.playSynth(freq, duration, wave_type, attack, decay, sustain, release)`
+### `doodle.playSynth(frequency, duration, wave_type=WAVE_SQUARE, attack=0.01, decay=0.05, sustain=0.5, release=0.05, frequency_slide=0.0, vibrato_speed=0.0, vibrato_depth=0.0, tremolo_speed=0.0, tremolo_depth=0.0, filter_cutoff=0.0, pan=0.0)`
 
-Play a procedurally generated tone with ADSR envelope shaping.
+Play a procedurally generated tone with ADSR envelope shaping, stereo panning, pitch slides, pitch LFO (vibrato), amplitude LFO (tremolo), and low-pass filtering.
 
 ```python
 doodle.playSynth(
-    freq=440.0,        # Frequency in Hz (A4)
-    duration=0.15,     # Total duration in seconds
-    wave_type=doodle.WAVE_TRIANGLE,
-    attack=0.01,       # Seconds to reach peak volume
-    decay=0.05,        # Seconds to settle to sustain level
-    sustain=0.3,       # Sustain volume level (0.0 - 1.0)
-    release=0.05       # Seconds to fade to silence
+    frequency=440.0,         # Base frequency in Hz (e.g. 440.0 for A4)
+    duration=0.15,           # Active tone duration in seconds
+    wave_type=doodle.WAVE_TRIANGLE, # Waveform type constant
+    attack=0.01,             # Envelope attack time in seconds (fade in)
+    decay=0.05,              # Envelope decay time in seconds
+    sustain=0.3,             # Envelope sustain volume level (0.0 to 1.0)
+    release=0.05,            # Envelope release time in seconds (fade out)
+    frequency_slide=100.0,   # Pitch slide rate in Hz/sec (sweeps frequency over time)
+    vibrato_speed=6.0,       # Frequency of pitch modulation LFO in Hz
+    vibrato_depth=10.0,      # Amplitude of pitch LFO modulation in Hz
+    tremolo_speed=5.0,       # Frequency of amplitude modulation LFO in Hz
+    tremolo_depth=0.5,       # Depth of amplitude LFO modulation (0.0 to 1.0)
+    filter_cutoff=1000.0,    # Low-pass filter cutoff frequency in Hz (0.0 to bypass)
+    pan=-0.5                 # Stereo panning position (-1.0 = left, 1.0 = right, 0.0 = center)
 )
 ```
 

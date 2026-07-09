@@ -59,13 +59,13 @@ The central module that:
 
 ### `mparser.h / .c` — DOM Tree & Node Management
 
-Defines the core data structures:
-- `UINode` struct (64-byte ID, 512-byte text, style props, layout box, children array)
-- `StyleProps` struct (colors, sizing, padding, margin, flex, fonts, shaders, transforms)
-- `LayoutBox` struct (x, y, width, height)
-- Node creation (`CreateNode`) from an object pool
-- Hash-table based `FindNodeById` for O(1) lookups
-- Tree manipulation (`AddChild`, `RemoveNode`, `FreeNode`)
+Defines the core data structures and memory layout:
+- **`UINode` struct** — Optimized to use pooled string pointers (`const char*`) instead of static buffers for `id`, `class_name`, `text_content`, `asset_path`, `font_path`, `shader_path`, etc. This reduces each node's memory footprint by 90% (from 1.4 KB to ~220 bytes).
+- **`StyleProps` struct** — Holds CSS style values (colors, sizing, padding, margin, flex, fonts, shaders, transforms).
+- **`LayoutBox` struct** — Stores computed absolute rendering bounds (`x`, `y`, `width`, `height`).
+- **Memory Optimization** — Allocates nodes and dynamic strings (`DOMStrDup`) inside a centralized `dom_arena` (sized at 512 KB to minimize RAM overhead).
+- **Lookup Registry** — Hash-table based `FindNodeById` for O(1) lookups instead of slow recursive tree searches.
+- **Tree Operations** — Helper routines like `CreateNode`, `AddChild`, `RemoveNode`, and `FreeNode`.
 
 ### `html_parser.h / .c` — HTML Parser
 
@@ -131,34 +131,36 @@ Supports:
 - Rotation transforms
 - Camera-aware rendering (`BeginMode2D` / `EndMode2D`)
 - Hover state style swapping
+- **FBO Camera Bypass** — If a container uses a camera but has no custom post-processing shader, the renderer bypasses Framebuffer Object (FBO) creation and texture blitting, rendering directly to the backbuffer to save GPU cycles.
 
 ### `daudio.h / .c` — Polyphonic Synthesizer
 
-Multi-voice audio engine:
-- **8 simultaneous voices** with independent phase accumulators
-- **5 waveforms**: Sine, Square, Triangle, Sawtooth, White Noise
-- **ADSR envelope generator** per voice (attack, decay, sustain, release)
-- **Audio callback** fills Raylib's audio stream buffer each frame
-- Square wave uses fast phase-boundary comparison (no `sinf` call)
-- Pre-cached inverse lifetime values eliminate division in the hot path
+Multi-voice audio engine featuring:
+- **8 simultaneous voices** with independent phase accumulators and thread-safe mutex operations.
+- **5 waveforms**: Sine, Square, Triangle, Sawtooth, White Noise.
+- **ADSR envelope generator** per voice (attack, decay, sustain, release).
+- **Advanced parameters** per voice: Stereo panning (constant power panning), pitch slides, vibrato (pitch LFO), tremolo (amplitude LFO), and low-pass filtering.
+- **Fast-path optimizations**: Fast phase-boundary comparison for square waves, pre-calculated 360-degree trigonometry lookup table (`fast_math.h`) for sine waves, and cached inverse lifetimes to eliminate division in the audio callback.
+- **Audio callback** fills Raylib's audio stream buffer dynamically each frame.
 
 ### `particles.h / .c` — Object-Pooled Particle System
 
-- Pre-allocated pool of 2048 particles (zero runtime allocation)
-- Each particle has: position, velocity, color, lifetime, max_lifetime
-- Velocity uses randomized angles with `FastRandFloat` (xorshift128 PRNG)
-- Fades opacity linearly based on remaining lifetime
-- Drawn as 3×3 pixel rectangles
+- Pre-allocated pool of **512 particles** (zero runtime allocation footprint).
+- Each particle tracks: position, velocity, color, lifetime, max_lifetime.
+- Velocity angles use `FastRandFloat` (via xorshift128 PRNG) and precalculated fast trigonometry.
+- Opacity fades out linearly based on remaining lifetime.
+- Rendered on the GPU as 3×3 pixel rectangles.
 
 ### `cache.h / .c` — Asset Caching
 
 Caches loaded assets to prevent redundant disk reads:
-- **Textures**: Keyed by file path, loaded once via `LoadTexture`
-- **Sounds**: Keyed by file path, loaded once via `LoadSound`
-- **Shaders**: Keyed by file path, compiled once via `LoadShader`
-- **Fonts**: Keyed by path + size, loaded once via `LoadFontEx`
-
-All caches are cleaned up on window close.
+- Uses **dynamic hash tables** backed by a shared memory arena instead of fixed-size arrays.
+- Caches:
+  - **Textures**: Keyed by file path, loaded via `LoadTexture`.
+  - **Sounds**: Keyed by file path, loaded via `LoadSound`.
+  - **Shaders**: Keyed by file path, compiled via `LoadShader`. Includes **automatic runtime shader reloading** (`CheckShaderUpdates`) when files change.
+  - **Fonts**: Keyed by path + size, loaded via `LoadFontEx`.
+- All cached resources are cleaned up on window close.
 
 ### `profiler.h / .c` — Developer Tools
 
@@ -177,10 +179,12 @@ Also implements the runtime Python console:
 
 ### Utility Modules
 
-- **`color.h / .c`** — Parses hex (`#ff5733`), named (`red`), and `rgba()` color strings to Raylib `Color`
-- **`unit.h / .c`** — Parses CSS units (`100px`, `50%`, `grow`, `fit`) to numeric values
-- **`string_utils.h / .c`** — Whitespace trimming
-- **`dom_utils.h / .c`** — Tree traversal helpers
+- **`color.h / .c`** — Parses hex (`#ff5733`), named (`red`), and `rgba()` color strings to Raylib `Color` structures.
+- **`unit.h / .c`** — Parses CSS units (`100px`, `50%`, `grow`, `fit`) to numeric values.
+- **`arena.h`** — Generic growable Memory Arena allocator supporting alignment validation, dynamic region list, snapshots, rewinds, and dynamic array macros.
+- **`fast_math.h`** — Precalculated 360-degree trigonometry lookup table for `fast_sin` and `fast_cos`.
+- **`string_utils.h / .c`** — String trimming and FNV-1a hashing.
+- **`dom_utils.h / .c`** — Tree traversal helpers.
 
 ---
 
@@ -231,6 +235,6 @@ The `layout_dirty` flag ensures the expensive `ComputeLayout()` only runs when s
 | Layout recompute | O(n) | Only when dirty flag is set |
 | Collision check | O(1) per pair | Direct Raylib math functions |
 | Group collision | O(n) | Walks tree filtering by class |
-| Particle update | O(k) | k = active particles (max 2048) |
+| Particle update | O(k) | k = active particles (max 512) |
 | Synth voices | O(8) per audio buffer | Fixed 8-voice polyphony |
 | CSS application | O(m) per property | m = registry size (~30) |

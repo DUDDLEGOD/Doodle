@@ -95,7 +95,7 @@ doodle.setStyle("id", "prop", "val"); doodle.getStyle("id", "prop")
 ### Audio
 ```python
 doodle.playSound("sfx/hit.wav")
-doodle.playSynth(freq, dur, wave, atk, dec, sus, rel)
+doodle.playSynth(frequency, duration, wave_type=1, attack=0.01, decay=0.05, sustain=0.5, release=0.05, frequency_slide=0.0, vibrato_speed=0.0, vibrato_depth=0.0, tremolo_speed=0.0, tremolo_depth=0.0, filter_cutoff=0.0, pan=0.0)
 # WAVE_SINE=0 WAVE_SQUARE=1 WAVE_TRIANGLE=2 WAVE_SAWTOOTH=3 WAVE_NOISE=4
 ```
 

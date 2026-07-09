@@ -81,9 +81,10 @@ elif sys.platform == 'win32':
         library_dirs.append(r'C:\raylib\lib')
     libraries.extend(['raylib', 'gdi32', 'winmm', 'user32', 'shell32', 'psapi'])
 
-    # MSVC doesn't support -std=c99 compile flag
+    # MSVC optimization flags
     if not FORCE_MINGW:
-        extra_compile_args = []
+        extra_compile_args = ['/O2', '/Ot', '/Gy']
+        extra_link_args.extend(['/OPT:REF', '/OPT:ICF'])
 
 
 doodle_module = Extension(

@@ -20,11 +20,11 @@ void MeasureNode(UINode* node) {
     float intrinsic_h = 0.0f;
 
     if (node->type == NODE_TEXT || node->type == NODE_BUTTON) {
-        if (strlen(node->text_content) > 0) {
+        if (node->text_content[0] != '\0') {
             float font_size = s->font_size;
             Font font = GetFontDefault();
             int has_custom_font = 0;
-            if (strlen(s->font_path) > 0) {
+            if (s->font_path[0] != '\0') {
                 font = GetCachedFont(s->font_path);
                 if (font.texture.id > 0) has_custom_font = 1;
             }
@@ -41,7 +41,7 @@ void MeasureNode(UINode* node) {
             }
         }
     } else if (node->type == NODE_IMAGE) {
-        if (strlen(node->asset_path) > 0) {
+        if (node->asset_path[0] != '\0') {
             Texture2D tex = GetCachedTexture(node->asset_path);
             if (tex.id > 0) {
                 intrinsic_w = (float)tex.width;
@@ -184,19 +184,24 @@ void LayoutNode(UINode* node, float avail_w, float avail_h) {
     }
 
     float remaining_space = (s->flex_direction == DIR_ROW ? inner_w : inner_h) - rel_sum;
-    if (remaining_space > 0.0f) {
-        if (strcmp(s->justify_content, "flex-end") == 0) {
-            if (s->flex_direction == DIR_ROW) child_start_x += remaining_space;
-            else child_start_y += remaining_space;
-        } else if (strcmp(s->justify_content, "center") == 0) {
+    if (remaining_space > 0.0f && s->justify_content[0] != '\0') {
+        char j0 = s->justify_content[0];
+        if (j0 == 'f') {
+            if (s->justify_content[5] == 'e') {
+                if (s->flex_direction == DIR_ROW) child_start_x += remaining_space;
+                else child_start_y += remaining_space;
+            }
+        } else if (j0 == 'c') {
             if (s->flex_direction == DIR_ROW) child_start_x += remaining_space / 2.0f;
             else child_start_y += remaining_space / 2.0f;
-        } else if (strcmp(s->justify_content, "space-between") == 0 && rel_count > 1) {
-            gap = remaining_space / (rel_count - 1);
-        } else if (strcmp(s->justify_content, "space-around") == 0 && rel_count > 0) {
-            gap = remaining_space / rel_count;
-            if (s->flex_direction == DIR_ROW) child_start_x += gap / 2.0f;
-            else child_start_y += gap / 2.0f;
+        } else if (j0 == 's') {
+            if (s->justify_content[6] == 'b' && rel_count > 1) {
+                gap = remaining_space / (rel_count - 1);
+            } else if (s->justify_content[6] == 'a' && rel_count > 0) {
+                gap = remaining_space / rel_count;
+                if (s->flex_direction == DIR_ROW) child_start_x += gap / 2.0f;
+                else child_start_y += gap / 2.0f;
+            }
         }
     }
 
@@ -218,7 +223,7 @@ void LayoutNode(UINode* node, float avail_w, float avail_h) {
             if (s->flex_direction == DIR_ROW) {
                 current_x += cs->margin_left;
                 float final_y = current_y + cs->margin_top;
-                if (strcmp(s->align_items, "center") == 0) {
+                if (s->align_items[0] == 'c') {
                     float avail_h = inner_h - cs->margin_top - cs->margin_bottom;
                     final_y = current_y + cs->margin_top + (avail_h - child->layout.height) / 2.0f;
                 }
@@ -228,7 +233,7 @@ void LayoutNode(UINode* node, float avail_w, float avail_h) {
             } else {
                 current_y += cs->margin_top;
                 float final_x = current_x + cs->margin_left;
-                if (strcmp(s->align_items, "center") == 0) {
+                if (s->align_items[0] == 'c') {
                     float avail_w = inner_w - cs->margin_left - cs->margin_right;
                     final_x = current_x + cs->margin_left + (avail_w - child->layout.width) / 2.0f;
                 }

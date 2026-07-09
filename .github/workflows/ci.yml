@@ -1,0 +1,68 @@
+name: CI
+
+on:
+  push:
+    branches: [ master, main ]
+  pull_request:
+    branches: [ master, main ]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    name: Build and verify on ${{ matrix.os }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-14]
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install System Dependencies (Linux)
+        if: matrix.os == 'ubuntu-latest'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libx11-dev libxcursor-dev libxrandr-dev libxinerama-dev libxi-dev libgl1-mesa-dev libasound2-dev cmake
+
+      - name: Clone raylib
+        run: git clone --depth 1 https://github.com/raysan5/raylib.git
+
+      - name: Build raylib (Windows/macOS)
+        if: matrix.os != 'ubuntu-latest'
+        run: |
+          cd raylib
+          cmake -B build -DBUILD_SHARED_LIBS=OFF -DCMAKE_BUILD_TYPE=Release
+          cmake --build build --config Release
+        shell: bash
+
+      - name: Build and install raylib (Linux)
+        if: matrix.os == 'ubuntu-latest'
+        run: |
+          cd raylib
+          cmake -B build -DBUILD_SHARED_LIBS=OFF -DCMAKE_BUILD_TYPE=Release -DCMAKE_POSITION_INDEPENDENT_CODE=ON
+          cmake --build build --config Release
+          sudo cmake --install build
+        shell: bash
+
+      - name: Install build dependencies
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install setuptools wheel psutil pygame
+
+      - name: Build Extension (inplace)
+        run: |
+          python setup.py build_ext --inplace
+
+      - name: Verify Library Import
+        run: |
+          python -c "import doodle; print('Doodle UI imported successfully!')"

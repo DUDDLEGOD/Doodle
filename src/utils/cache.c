@@ -227,7 +227,7 @@ static HashTable_Music active_musics = {0};
 
 void SetupAudioNodes(UINode* node) {
     if (!node) return;
-    if (node->type == NODE_AUDIO && strlen(node->asset_path) > 0) {
+    if (node->type == NODE_AUDIO && node->asset_path[0] != '\0') {
         EnsureCacheArenaInit();
         const char* path = node->asset_path;
         uint64_t h = HashString64(path);

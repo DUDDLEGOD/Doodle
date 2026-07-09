@@ -30,18 +30,33 @@ static inline int GetActiveZIndex(UINode* n) {
 }
 
 void GetSortedChildren(UINode* node, UINode** sorted_list) {
-    for (int i = 0; i < node->child_count; i++) {
+    int N = node->child_count;
+    for (int i = 0; i < N; i++) {
         sorted_list[i] = node->children[i];
     }
-    for (int i = 1; i < node->child_count; i++) {
-        UINode* key = sorted_list[i];
-        int key_z = GetActiveZIndex(key);
-        int j = i - 1;
-        while (j >= 0 && GetActiveZIndex(sorted_list[j]) > key_z) {
-            sorted_list[j + 1] = sorted_list[j];
-            j = j - 1;
+    int needs_sort = 0;
+    if (N > 1) {
+        int last_z = GetActiveZIndex(sorted_list[0]);
+        for (int i = 1; i < N; i++) {
+            int cur_z = GetActiveZIndex(sorted_list[i]);
+            if (cur_z < last_z) {
+                needs_sort = 1;
+                break;
+            }
+            last_z = cur_z;
         }
-        sorted_list[j + 1] = key;
+    }
+    if (needs_sort) {
+        for (int i = 1; i < N; i++) {
+            UINode* key = sorted_list[i];
+            int key_z = GetActiveZIndex(key);
+            int j = i - 1;
+            while (j >= 0 && GetActiveZIndex(sorted_list[j]) > key_z) {
+                sorted_list[j + 1] = sorted_list[j];
+                j = j - 1;
+            }
+            sorted_list[j + 1] = key;
+        }
     }
 }
 
@@ -104,15 +119,29 @@ void DrawUINode(UINode* node) {
                 if (N > MAX_SORT_NODES) N = MAX_SORT_NODES;
                 UINode* sorted_children[MAX_SORT_NODES];
                 for (int i = 0; i < N; i++) sorted_children[i] = node->children[i];
-                for (int i = 1; i < N; i++) {
-                    UINode* key = sorted_children[i];
-                    int key_z = GetActiveZIndex(key);
-                    int j = i - 1;
-                    while (j >= 0 && GetActiveZIndex(sorted_children[j]) > key_z) {
-                        sorted_children[j + 1] = sorted_children[j];
-                        j = j - 1;
+                int needs_sort = 0;
+                if (N > 1) {
+                    int last_z = GetActiveZIndex(sorted_children[0]);
+                    for (int i = 1; i < N; i++) {
+                        int cur_z = GetActiveZIndex(sorted_children[i]);
+                        if (cur_z < last_z) {
+                            needs_sort = 1;
+                            break;
+                        }
+                        last_z = cur_z;
                     }
-                    sorted_children[j + 1] = key;
+                }
+                if (needs_sort) {
+                    for (int i = 1; i < N; i++) {
+                        UINode* key = sorted_children[i];
+                        int key_z = GetActiveZIndex(key);
+                        int j = i - 1;
+                        while (j >= 0 && GetActiveZIndex(sorted_children[j]) > key_z) {
+                            sorted_children[j + 1] = sorted_children[j];
+                            j = j - 1;
+                        }
+                        sorted_children[j + 1] = key;
+                    }
                 }
                 for (int i = 0; i < N; i++) DrawUINode(sorted_children[i]);
             }
@@ -172,15 +201,29 @@ void DrawUINode(UINode* node) {
                 if (N > MAX_SORT_NODES) N = MAX_SORT_NODES;
                 UINode* sorted_children[MAX_SORT_NODES];
                 for (int i = 0; i < N; i++) sorted_children[i] = node->children[i];
-                for (int i = 1; i < N; i++) {
-                    UINode* key = sorted_children[i];
-                    int key_z = GetActiveZIndex(key);
-                    int j = i - 1;
-                    while (j >= 0 && GetActiveZIndex(sorted_children[j]) > key_z) {
-                        sorted_children[j + 1] = sorted_children[j];
-                        j = j - 1;
+                int needs_sort = 0;
+                if (N > 1) {
+                    int last_z = GetActiveZIndex(sorted_children[0]);
+                    for (int i = 1; i < N; i++) {
+                        int cur_z = GetActiveZIndex(sorted_children[i]);
+                        if (cur_z < last_z) {
+                            needs_sort = 1;
+                            break;
+                        }
+                        last_z = cur_z;
                     }
-                    sorted_children[j + 1] = key;
+                }
+                if (needs_sort) {
+                    for (int i = 1; i < N; i++) {
+                        UINode* key = sorted_children[i];
+                        int key_z = GetActiveZIndex(key);
+                        int j = i - 1;
+                        while (j >= 0 && GetActiveZIndex(sorted_children[j]) > key_z) {
+                            sorted_children[j + 1] = sorted_children[j];
+                            j = j - 1;
+                        }
+                        sorted_children[j + 1] = key;
+                    }
                 }
                 for (int i = 0; i < N; i++) DrawUINode(sorted_children[i]);
             }
@@ -271,7 +314,7 @@ void DrawUINode(UINode* node) {
             float draw_x = node->layout.x;
             float draw_y = node->layout.y;
 
-            if (strcmp(active_style->text_align, "center") == 0) {
+            if (active_style->text_align[0] == 'c') {
                 draw_x = node->layout.x + (node->layout.width - text_size.x) / 2.0f;
                 draw_y = node->layout.y + (node->layout.height - text_size.y) / 2.0f;
             } else if (node->type == NODE_BUTTON) {
@@ -330,15 +373,29 @@ void DrawUINode(UINode* node) {
             for (int i = 0; i < N; i++) {
                 sorted_children[i] = node->children[i];
             }
-            for (int i = 1; i < N; i++) {
-                UINode* key = sorted_children[i];
-                int key_z = GetActiveZIndex(key);
-                int j = i - 1;
-                while (j >= 0 && GetActiveZIndex(sorted_children[j]) > key_z) {
-                    sorted_children[j + 1] = sorted_children[j];
-                    j = j - 1;
+            int needs_sort = 0;
+            if (N > 1) {
+                int last_z = GetActiveZIndex(sorted_children[0]);
+                for (int i = 1; i < N; i++) {
+                    int cur_z = GetActiveZIndex(sorted_children[i]);
+                    if (cur_z < last_z) {
+                        needs_sort = 1;
+                        break;
+                    }
+                    last_z = cur_z;
                 }
-                sorted_children[j + 1] = key;
+            }
+            if (needs_sort) {
+                for (int i = 1; i < N; i++) {
+                    UINode* key = sorted_children[i];
+                    int key_z = GetActiveZIndex(key);
+                    int j = i - 1;
+                    while (j >= 0 && GetActiveZIndex(sorted_children[j]) > key_z) {
+                        sorted_children[j + 1] = sorted_children[j];
+                        j = j - 1;
+                    }
+                    sorted_children[j + 1] = key;
+                }
             }
 
             for (int i = 0; i < N; i++) {

@@ -93,10 +93,9 @@ static SynthMutex synth_mutex;
 
 static inline float lookup_sin(float phase) {
     float idx_f = phase * (float)SIN_LUT_SIZE;
-    int idx = (int)idx_f;
-    float frac = idx_f - (float)idx;
-    if (idx < 0) idx = 0;
-    else if (idx >= SIN_LUT_SIZE) idx = SIN_LUT_SIZE - 1;
+    int idx_int = (int)idx_f;
+    int idx = idx_int & (SIN_LUT_SIZE - 1);
+    float frac = idx_f - (float)idx_int;
     return sin_lut[idx] + frac * (sin_lut[idx + 1] - sin_lut[idx]);
 }
 

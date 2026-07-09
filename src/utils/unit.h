@@ -5,7 +5,7 @@
 
 static inline float ParseUnit(const char* unitStr) {
     if (!unitStr) return 0.0f;
-    return (float)atof(unitStr);
+    return strtof(unitStr, NULL);
 }
 
 static inline float ParseUnitExt(const char* unitStr, int* isPercent) {

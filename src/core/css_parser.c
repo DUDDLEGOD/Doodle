@@ -237,22 +237,29 @@ static void ApplyRuleToNode(UINode* node, CSSRule* rule) {
     if (rule->is_class) {
         if (HasClassHash(node->class_hashes, 8, rule->selector_hash)) matches = 1;
     } else if (rule->is_id) {
-        if (strcmp(node->id, rule->selector) == 0) matches = 1;
+        if (node->id[0] == rule->selector[0] && strcmp(node->id, rule->selector) == 0) matches = 1;
     } else {
-        const char* tag = "view";
-        if (node->type == NODE_VIEW) tag = "view";
-        else if (node->type == NODE_TEXT) tag = "text";
-        else if (node->type == NODE_IMAGE) tag = "image";
-        else if (node->type == NODE_BUTTON) tag = "button";
-        else if (node->type == NODE_AUDIO) tag = "audio";
-        else if (node->type == NODE_CIRCLE) tag = "circle";
-        else if (node->type == NODE_LINE) tag = "line";
-        if (strcmp(tag, rule->selector) == 0) matches = 1;
+        char s0 = rule->selector[0];
+        if (s0 != '\0') {
+            NodeType target_type = NODE_VIEW;
+            switch (s0) {
+                case 'v': target_type = NODE_VIEW; break;
+                case 't': target_type = NODE_TEXT; break;
+                case 'i': target_type = NODE_IMAGE; break;
+                case 'b': target_type = NODE_BUTTON; break;
+                case 'a': target_type = NODE_AUDIO; break;
+                case 'c': target_type = NODE_CIRCLE; break;
+                case 'l': target_type = NODE_LINE; break;
+            }
+            if (node->type == target_type) matches = 1;
+        }
     }
 
     if (matches) {
         for (int i = 0; i < css_registry_count; i++) {
-            if (strcmp(css_registry[i].property_name, rule->property) == 0) {
+            if (css_registry[i].property_name[0] == rule->property[0] &&
+                css_registry[i].property_name[1] == rule->property[1] &&
+                strcmp(css_registry[i].property_name, rule->property) == 0) {
                 if (rule->is_hover) {
                     StyleProps temp = node->style;
                     node->style = node->hover_style;
@@ -293,19 +300,8 @@ static int CompareCSSRules(const void* a, const void* b) {
 
 void LoadCSS(const char* filepath) {
     global_stylesheet.count = 0;
-    FILE* f = fopen(filepath, "r");
-    if (!f) return;
-    fseek(f, 0, SEEK_END);
-    long size = ftell(f);
-    fseek(f, 0, SEEK_SET);
-    char* buf = (char*)malloc(size + 1);
-    if (!buf) {
-        fclose(f);
-        return;
-    }
-    size_t read_bytes = fread(buf, 1, size, f);
-    buf[read_bytes] = '\0';
-    fclose(f);
+    char* buf = LoadFileContent(filepath);
+    if (!buf) return;
 
     char* p = buf;
     while (*p) {
@@ -377,17 +373,17 @@ void LoadCSS(const char* filepath) {
                 if (base_selector[0] == '.') {
                     r->is_class = 1; r->is_id = 0;
                     snprintf(r->selector, 64, "%.*s", 63, base_selector + 1);
-                    r->selector_hash = HashString(r->selector);
+                    r->selector_hash = HashString32(r->selector);
                     r->specificity = 10;
                 } else if (base_selector[0] == '#') {
                     r->is_class = 0; r->is_id = 1;
                     snprintf(r->selector, 64, "%.*s", 63, base_selector + 1);
-                    r->selector_hash = HashString(r->selector);
+                    r->selector_hash = HashString32(r->selector);
                     r->specificity = 100;
                 } else {
                     r->is_class = 0; r->is_id = 0;
                     snprintf(r->selector, 64, "%.*s", 63, base_selector);
-                    r->selector_hash = HashString(r->selector);
+                    r->selector_hash = HashString32(r->selector);
                     r->specificity = 1;
                 }
 

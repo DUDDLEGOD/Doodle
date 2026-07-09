@@ -16,7 +16,9 @@ static inline Color ParseColor(const char* hexOrRgba) {
     if (!hexOrRgba) return (Color){0};
 
     if (hexOrRgba[0] == '#') {
-        int len = strlen(hexOrRgba);
+        int len = 0;
+        while (hexOrRgba[len] != '\0' && len < 10) len++;
+
         int r = 0, g = 0, b = 0, a = 255;
         if (len == 7) {
             int r1 = HexVal(hexOrRgba[1]);
@@ -56,16 +58,18 @@ static inline Color ParseColor(const char* hexOrRgba) {
             }
         }
         return (Color){ (unsigned char)r, (unsigned char)g, (unsigned char)b, (unsigned char)a };
-    } else if (strncmp(hexOrRgba, "rgba", 4) == 0) {
-        int r, g, b;
-        float a;
-        if (sscanf(hexOrRgba, "rgba(%d,%d,%d,%f)", &r, &g, &b, &a) == 4) {
-            return (Color){ (unsigned char)r, (unsigned char)g, (unsigned char)b, (unsigned char)(a * 255.0f) };
-        }
-    } else if (strncmp(hexOrRgba, "rgb", 3) == 0) {
-        int r, g, b;
-        if (sscanf(hexOrRgba, "rgb(%d,%d,%d)", &r, &g, &b) == 3) {
-            return (Color){ (unsigned char)r, (unsigned char)g, (unsigned char)b, 255 };
+    } else if (hexOrRgba[0] == 'r' && hexOrRgba[1] == 'g' && hexOrRgba[2] == 'b') {
+        if (hexOrRgba[3] == 'a' && hexOrRgba[4] == '(') {
+            int r, g, b;
+            float a;
+            if (sscanf(hexOrRgba, "rgba(%d,%d,%d,%f)", &r, &g, &b, &a) == 4) {
+                return (Color){ (unsigned char)r, (unsigned char)g, (unsigned char)b, (unsigned char)(a * 255.0f) };
+            }
+        } else if (hexOrRgba[3] == '(') {
+            int r, g, b;
+            if (sscanf(hexOrRgba, "rgb(%d,%d,%d)", &r, &g, &b) == 3) {
+                return (Color){ (unsigned char)r, (unsigned char)g, (unsigned char)b, 255 };
+            }
         }
     }
     return (Color) { 0 };

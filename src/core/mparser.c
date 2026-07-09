@@ -1,20 +1,12 @@
 #include "mparser.h"
 #include "arena.h"
+#include "string_utils.h"
 #include <string.h>
 #include <stdlib.h>
 #include <stdio.h>
 #include <stddef.h>
 
 static int g_node_id_counter = 0;
-
-static inline unsigned int hash_id(const char* str) {
-    unsigned int hash = 5381;
-    int c;
-    while ((c = (unsigned char)*str++)) {
-        hash = ((hash << 5) + hash) + c;
-    }
-    return hash;
-}
 
 typedef struct {
     char id[64];
@@ -26,7 +18,7 @@ static HashEntry node_hash_table[4096]; // Increased size
 
 void AddToHashTable(UINode* node) {
     if (!node || strlen(node->id) == 0) return;
-    unsigned int h = hash_id(node->id);
+    unsigned int h = HashString32(node->id);
     for (int i = 0; i < 4096; i++) {
         unsigned int idx = (h + i) % 4096;
         if (node_hash_table[idx].node == NULL) {
@@ -39,14 +31,44 @@ void AddToHashTable(UINode* node) {
 
 void RemoveFromHashTable(const char* id) {
     if (!id || strlen(id) == 0) return;
-    unsigned int h = hash_id(id);
+    unsigned int h = HashString32(id);
+    int idx = -1;
     for (int i = 0; i < 4096; i++) {
-        unsigned int idx = (h + i) % 4096;
-        if (node_hash_table[idx].node != NULL && strcmp(node_hash_table[idx].id, id) == 0) {
-            node_hash_table[idx].node = NULL;
-            node_hash_table[idx].id[0] = '\0';
+        unsigned int cur = (h + i) % 4096;
+        if (node_hash_table[cur].node == NULL) {
+            return; // Not found
+        }
+        if (strcmp(node_hash_table[cur].id, id) == 0) {
+            idx = (int)cur;
             break;
         }
+    }
+    if (idx == -1) return;
+
+    // Delete the entry
+    node_hash_table[idx].node = NULL;
+    node_hash_table[idx].id[0] = '\0';
+
+    // Rehash all subsequent entries in the same cluster to prevent breaking linear probing lookup chains
+    int j = (idx + 1) % 4096;
+    while (node_hash_table[j].node != NULL) {
+        UINode* node_to_reinsert = node_hash_table[j].node;
+        char id_to_reinsert[64];
+        snprintf(id_to_reinsert, sizeof(id_to_reinsert), "%s", node_hash_table[j].id);
+
+        node_hash_table[j].node = NULL;
+        node_hash_table[j].id[0] = '\0';
+
+        unsigned int rh = HashString32(id_to_reinsert);
+        for (int k = 0; k < 4096; k++) {
+            unsigned int new_idx = (rh + k) % 4096;
+            if (node_hash_table[new_idx].node == NULL) {
+                snprintf(node_hash_table[new_idx].id, sizeof(node_hash_table[new_idx].id), "%s", id_to_reinsert);
+                node_hash_table[new_idx].node = node_to_reinsert;
+                break;
+            }
+        }
+        j = (j + 1) % 4096;
     }
 }
 
@@ -155,7 +177,7 @@ void AddChild(UINode* parent, UINode* child) {
 
 UINode* FindNodeById(UINode* root_node, const char* id) {
     if (!id) return NULL;
-    unsigned int h = hash_id(id);
+    unsigned int h = HashString32(id);
     for (int i = 0; i < 4096; i++) {
         unsigned int idx = (h + i) % 4096;
         if (node_hash_table[idx].node == NULL) {

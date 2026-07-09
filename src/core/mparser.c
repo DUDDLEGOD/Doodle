@@ -3,6 +3,7 @@
 #include <string.h>
 #include <stdlib.h>
 #include <stdio.h>
+#include <stddef.h>
 
 static int g_node_id_counter = 0;
 
@@ -79,7 +80,7 @@ UINode* CreateNode(NodeType type) {
     UINode* node = (UINode*)ArenaAlloc(&dom_arena, sizeof(UINode), 8);
     if (!node) return NULL;
     memset(node, 0, sizeof(UINode));
-    
+
     node->type = type;
     char temp_id[64];
     sprintf(temp_id, "__node_%d", ++g_node_id_counter);
@@ -88,7 +89,7 @@ UINode* CreateNode(NodeType type) {
     node->text_content = "";
     node->asset_path = "";
     AddToHashTable(node);
-    
+
     // Style defaults
     node->style.bg_color = BLANK;
     node->style.border_color = BLANK;
@@ -96,7 +97,7 @@ UINode* CreateNode(NodeType type) {
     node->style.font_size = 16.0f;
     node->style.opacity = 1.0f;
     node->style.flex_direction = DIR_COLUMN;
-    
+
     node->style.width_type = SIZING_FIT;
     node->style.height_type = SIZING_FIT;
     node->style.left = 0.0f;
@@ -104,13 +105,13 @@ UINode* CreateNode(NodeType type) {
     node->style.rotation = 0.0f;
     node->style.tint_color = BLANK;
     node->style.z_index = 0;
-    
+
     node->style.font_path = "";
     node->style.justify_content = "";
     node->style.align_items = "";
     node->style.text_align = "";
     node->style.shader_path = "";
-    
+
     node->hover_style = node->style;
     node->visible = 1;
     node->autoplay = 0;
@@ -119,7 +120,7 @@ UINode* CreateNode(NodeType type) {
     node->thickness = 1.0f;
     node->shape_color = WHITE;
     node->line_number = 0;
-    
+
     return node;
 }
 
@@ -136,7 +137,7 @@ void FreeNode(UINode* node) {
 
 void AddChild(UINode* parent, UINode* child) {
     if (!parent || !child) return;
-    
+
     if (parent->child_count >= parent->child_capacity) {
         int new_cap = parent->child_capacity == 0 ? 8 : parent->child_capacity * 2;
         UINode** new_children = (UINode**)ArenaAlloc(&dom_arena, new_cap * sizeof(UINode*), 8);
@@ -147,7 +148,7 @@ void AddChild(UINode* parent, UINode* child) {
         parent->children = new_children;
         parent->child_capacity = new_cap;
     }
-    
+
     parent->children[parent->child_count++] = child;
     child->parent = parent;
 }
@@ -191,12 +192,12 @@ void RemoveNode(UINode* root_node, UINode* node_to_remove) {
 void GetStyleProperty(UINode* node, const char* name, char* out_value, int max_len) {
     if (!node || !name || !out_value || max_len <= 0) return;
     out_value[0] = '\0';
-    
+
     StyleProps* s = &node->style;
     if (node->has_hover_style && node->currently_hovered) {
         s = &node->hover_style;
     }
-    
+
     if (strcmp(name, "rotation") == 0) {
         snprintf(out_value, max_len, "%f", s->rotation);
     } else if (strcmp(name, "z-index") == 0 || strcmp(name, "z_index") == 0) {

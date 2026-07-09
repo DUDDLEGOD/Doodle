@@ -3,6 +3,7 @@
 
 #include <stdint.h>
 #include <string.h>
+#include "string_utils.h"
 
 static inline int HasClass(const char* class_list, const char* cls) {
     if (!class_list || !cls) return 0;
@@ -20,27 +21,18 @@ static inline int HasClass(const char* class_list, const char* cls) {
     return 0;
 }
 
-static inline uint32_t HashString(const char* str) {
-    uint32_t hash = 5381;
-    int c;
-    while ((c = (unsigned char)*str++)) {
-        hash = ((hash << 5) + hash) + c;
-    }
-    return hash;
-}
-
 static inline void ParseClassHashes(const char* class_list, uint32_t* hashes, int max_hashes) {
     for (int i = 0; i < max_hashes; i++) hashes[i] = 0;
     if (!class_list) return;
-    
+
     char buf[256];
     strncpy(buf, class_list, 255);
     buf[255] = '\0';
-    
+
     int count = 0;
     char* token = strtok(buf, " \t\r\n");
     while (token && count < max_hashes) {
-        hashes[count++] = HashString(token);
+        hashes[count++] = HashString32(token);
         token = strtok(NULL, " \t\r\n");
     }
 }

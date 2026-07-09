@@ -4,6 +4,7 @@
 #include "string_utils.h"
 #include <string.h>
 #include <stdio.h>
+#include <stddef.h>
 
 // Static memory arena for all cache allocations
 static MemoryArena cache_arena = {0};

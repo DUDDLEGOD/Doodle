@@ -586,7 +586,11 @@ static void DrawDeveloperTools(int width, int height, double cpu_time_ms) {
         int p_y = 15;
 
         DrawRectangleRounded((Rectangle){ (float)p_x, (float)p_y, (float)p_width, (float)p_height }, 0.08f, 8, (Color){ 15, 23, 42, 220 });
+#ifdef RAYLIB_ROUNDED_LINES_5_ARGS
         DrawRectangleRoundedLines((Rectangle){ (float)p_x, (float)p_y, (float)p_width, (float)p_height }, 0.08f, 8, 1.5f, (Color){ 56, 189, 248, 100 });
+#else
+        DrawRectangleRoundedLinesEx((Rectangle){ (float)p_x, (float)p_y, (float)p_width, (float)p_height }, 0.08f, 8, 1.5f, (Color){ 56, 189, 248, 100 });
+#endif
 
         DrawText("DOODLE PROFILER", p_x + 12, p_y + 10, 12, (Color){ 56, 189, 248, 255 });
         DrawLine(p_x + 12, p_y + 25, p_x + p_width - 12, p_y + 25, (Color){ 56, 189, 248, 50 });

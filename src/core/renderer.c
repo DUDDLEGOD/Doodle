@@ -359,7 +359,11 @@ void DrawUINode(UINode* node) {
             float min_dim = node->layout.width > node->layout.height ? node->layout.height : node->layout.width;
             float roundness = min_dim > 0 ? (active_style->border_radius / min_dim) : 0.0f;
             if (roundness > 1.0f) roundness = 1.0f;
+#ifdef RAYLIB_ROUNDED_LINES_5_ARGS
             DrawRectangleRoundedLines(rec, roundness, 8, active_style->border_width, active_style->border_color); ctx.g_draw_calls++;
+#else
+            DrawRectangleRoundedLinesEx(rec, roundness, 8, active_style->border_width, active_style->border_color); ctx.g_draw_calls++;
+#endif
         } else {
             DrawRectangleLinesEx(rec, active_style->border_width, active_style->border_color); ctx.g_draw_calls++;
         }

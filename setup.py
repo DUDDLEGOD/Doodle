@@ -86,6 +86,9 @@ elif sys.platform == 'win32':
         extra_compile_args = ['/O2', '/Ot', '/Gy']
         extra_link_args.extend(['/OPT:REF', '/OPT:ICF'])
 
+    define_macros = []
+    if sys.platform == 'win32' and os.path.exists(r'third_party\raylib_dist\raylib-5.0_win64_mingw-w64'):
+        define_macros.append(('RAYLIB_ROUNDED_LINES_5_ARGS', '1'))
 
 doodle_module = Extension(
     'doodle._doodle',
@@ -98,7 +101,8 @@ doodle_module = Extension(
     library_dirs=library_dirs,
     libraries=libraries,
     extra_compile_args=extra_compile_args,
-    extra_link_args=extra_link_args
+    extra_link_args=extra_link_args,
+    define_macros=define_macros
 )
 
 setup(

@@ -6,6 +6,7 @@
 #include <string.h>
 #include <stdlib.h>
 #include <stdio.h>
+#include <stddef.h>
 
 // CSS Handlers
 void handle_flex_direction(UINode* node, const char* value) {
@@ -93,7 +94,7 @@ void handle_padding(UINode* node, const char* value) {
         vals[count++] = ParseUnit(token);
         token = strtok(NULL, " ");
     }
-    
+
     if (count == 1) {
         node->style.padding_left = node->style.padding_right = node->style.padding_top = node->style.padding_bottom = vals[0];
     } else if (count == 2) {
@@ -122,7 +123,7 @@ void handle_margin(UINode* node, const char* value) {
         vals[count++] = ParseUnit(token);
         token = strtok(NULL, " ");
     }
-    
+
     if (count == 1) {
         node->style.margin_left = node->style.margin_right = node->style.margin_top = node->style.margin_bottom = vals[0];
     } else if (count == 2) {
@@ -261,7 +262,7 @@ static void ApplyRuleToNode(UINode* node, CSSRule* rule) {
                     node->has_hover_style = 1;
                 } else {
                     css_registry[i].handler(node, rule->value);
-                    
+
                     StyleProps temp = node->style;
                     node->style = node->hover_style;
                     css_registry[i].handler(node, rule->value);
@@ -361,7 +362,7 @@ void LoadCSS(const char* filepath) {
 
             if (strlen(selector) > 0 && strlen(prop) > 0 && strlen(trimmed_val) > 0 && global_stylesheet.count < MAX_CSS_RULES) {
                 CSSRule* r = &global_stylesheet.rules[global_stylesheet.count++];
-                
+
                 int is_hover = 0;
                 char base_selector[64];
                 strncpy(base_selector, selector, sizeof(base_selector) - 1);
@@ -371,7 +372,7 @@ void LoadCSS(const char* filepath) {
                     *colon = '\0';
                     is_hover = 1;
                 }
-                
+
                 r->is_hover = is_hover;
                 if (base_selector[0] == '.') {
                     r->is_class = 1; r->is_id = 0;
@@ -389,7 +390,7 @@ void LoadCSS(const char* filepath) {
                     r->selector_hash = HashString(r->selector);
                     r->specificity = 1;
                 }
-                
+
                 snprintf(r->property, 64, "%.*s", 63, prop);
                 snprintf(r->value, 128, "%.*s", 127, trimmed_val);
             }

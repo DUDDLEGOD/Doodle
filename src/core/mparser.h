@@ -3,6 +3,7 @@
 
 #include "raylib.h"
 #include <stdint.h>
+#include <stddef.h>
 
 typedef enum { NODE_VIEW, NODE_TEXT, NODE_IMAGE, NODE_BUTTON, NODE_AUDIO, NODE_CIRCLE, NODE_LINE } NodeType;
 typedef enum { DIR_ROW, DIR_COLUMN } FlexDirection;

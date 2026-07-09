@@ -29,6 +29,7 @@ The project adheres to [Semantic Versioning](https://semver.org/).
 - **Compilation Tooling**: Updated `setup.py` with GCC compiler sections flags (`-ffunction-sections`, `-fdata-sections`, `-Wl,--gc-sections`) to strip dead code, reducing executable sizes.
 
 ### Fixed
+- **macOS Compilation**: Included `<stddef.h>` in `mparser.h` to define `size_t`, resolving compiler errors on macOS/Clang.
 - **FBO Camera Rendering Bypass**: Optimized camera view rendering. If camera mode is active but no custom post-processing shader is specified in the CSS, the engine bypasses Framebuffer Object (FBO) creation and blits directly to the window backbuffer, saving GPU overhead.
 - Corrected empty string pointer assignments for initialized layout nodes, avoiding null pointer dereferences.
 

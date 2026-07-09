@@ -33,6 +33,7 @@ library_dirs = []
 libraries = []
 extra_compile_args = ['-std=c99', '-O3', '-ffast-math', '-msse3']
 extra_link_args = []
+define_macros = []
 
 if not sys.platform == 'win32' or FORCE_MINGW:
     extra_compile_args.extend(['-ffunction-sections', '-fdata-sections'])
@@ -86,7 +87,6 @@ elif sys.platform == 'win32':
         extra_compile_args = ['/O2', '/Ot', '/Gy']
         extra_link_args.extend(['/OPT:REF', '/OPT:ICF'])
 
-    define_macros = []
     if sys.platform == 'win32' and os.path.exists(r'third_party\raylib_dist\raylib-5.0_win64_mingw-w64'):
         define_macros.append(('RAYLIB_ROUNDED_LINES_5_ARGS', '1'))
 

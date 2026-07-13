@@ -19,6 +19,9 @@ static inline Color ParseColor(const char* hexOrRgba) {
         int len = 0;
         while (hexOrRgba[len] != '\0' && len < 10) len++;
 
+        printf("[C Debug] ParseColor: '%s', len=%d\n", hexOrRgba, len);
+        fflush(stdout);
+
         int r = 0, g = 0, b = 0, a = 255;
         if (len == 7) {
             int r1 = HexVal(hexOrRgba[1]);
@@ -31,6 +34,9 @@ static inline Color ParseColor(const char* hexOrRgba) {
                 r = (r1 << 4) | r2;
                 g = (g1 << 4) | g2;
                 b = (b1 << 4) | b2;
+            } else {
+                printf("[C Debug] HexVal 7-char failed: %d %d %d %d %d %d\n", r1, r2, g1, g2, b1, b2);
+                fflush(stdout);
             }
         } else if (len == 9) {
             int r1 = HexVal(hexOrRgba[1]);
@@ -56,6 +62,9 @@ static inline Color ParseColor(const char* hexOrRgba) {
                 g = (g1 << 4) | g1;
                 b = (b1 << 4) | b1;
             }
+        } else {
+            printf("[C Debug] ParseColor unexpected len=%d\n", len);
+            fflush(stdout);
         }
         return (Color){ (unsigned char)r, (unsigned char)g, (unsigned char)b, (unsigned char)a };
     } else if (hexOrRgba[0] == 'r' && hexOrRgba[1] == 'g' && hexOrRgba[2] == 'b') {

@@ -342,6 +342,19 @@ def run(layout: str = "layout.html", style: str = "styles.css", width: int = 800
             os.chdir(sys._MEIPASS)
         except Exception:
             pass
+
+    # Print start info & validate file existence
+    layout_abs = os.path.abspath(layout)
+    style_abs = os.path.abspath(style)
+    print(f"[Doodle Engine] Working Directory: {os.getcwd()}")
+    print(f"[Doodle Engine] Layout Path: {layout_abs} (Exists: {os.path.exists(layout_abs)})")
+    print(f"[Doodle Engine] Style Path: {style_abs} (Exists: {os.path.exists(style_abs)})")
+
+    if not os.path.exists(layout_abs):
+        raise FileNotFoundError(f"Doodle Layout file not found: {layout_abs}")
+    if not os.path.exists(style_abs):
+        raise FileNotFoundError(f"Doodle Style file not found: {style_abs}")
+
     _parse_layout_templates(layout)
     
     # Extract inline event callbacks from layout.html

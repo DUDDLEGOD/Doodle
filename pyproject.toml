@@ -1,6 +1,6 @@
 [project]
 name = "doodle-ui"
-version = "1.2.3"
+version = "1.2.4"
 description = "Hardware-accelerated DOM-based UI & 2D Game Engine"
 readme = "README.md"
 requires-python = ">=3.11"
